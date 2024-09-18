@@ -1,0 +1,61 @@
+import logging
+
+
+def setup_logger() -> logging.Logger:
+    # Create a logger
+    logger = logging.getLogger("rf")
+    logger.setLevel(logging.DEBUG)
+
+    # Create a console handler and set level to INFO
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    # Create a file handler and set level to DEBUG
+    file_handler = logging.FileHandler("results.log")
+    file_handler.setLevel(logging.DEBUG)
+
+    # Create a formatter and set it for both handlers
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    # Add both handlers to the logger
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+def setup_loggers() -> None:
+    # Set up the base format and log levels for the different loggers
+    formatter = logging.Formatter("%(asctime)s - %(message)s")
+
+    # General agent log
+    rf_log_handler = logging.StreamHandler()
+    rf_log_handler.setLevel(logging.INFO)
+    rf_log_handler.setFormatter(formatter)
+
+    # Message log
+    message_log_handler = logging.FileHandler("messages.log")
+    message_log_handler.setLevel(logging.INFO)
+    message_log_handler.setFormatter(formatter)
+
+    # Neural network accuracy log
+    accuracy_log_handler = logging.FileHandler("accuracy.log")
+    accuracy_log_handler.setLevel(logging.INFO)
+    accuracy_log_handler.setFormatter(formatter)
+
+    # Attach handlers to the loggers for each agent category
+    base_logger = logging.getLogger("rf.log")
+    base_logger.setLevel(logging.INFO)
+    base_logger.addHandler(rf_log_handler)
+
+    message_logger = logging.getLogger("rf.message")
+    message_logger.setLevel(logging.INFO)
+    message_logger.addHandler(message_log_handler)
+
+    accuracy_logger = logging.getLogger("rf.accuracy")
+    accuracy_logger.setLevel(logging.INFO)
+    accuracy_logger.addHandler(accuracy_log_handler)
