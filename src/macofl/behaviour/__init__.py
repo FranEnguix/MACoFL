@@ -1,4 +1,4 @@
-from .coordinator import (
+from .coordination import (
     AvailableNodeState,
     SubscriptionNodeState,
     PresenceNodeFSM,

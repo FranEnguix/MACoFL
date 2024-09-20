@@ -12,6 +12,7 @@ class LaunchAgentsBehaviour(OneShotBehaviour):
 
     async def run(self) -> None:
         agent: LauncherAgent = self.agent
+        # TODO object NoneType can't be used in 'await' expression
         await agent.launch_agents()
         agent.logger.info("Agents launched.")
 

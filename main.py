@@ -18,6 +18,10 @@ async def main():
 
     logger = logging.getLogger("rf.log.main")
 
+    logger.info("Starting...")
+    logger.info(f"Python version: {sys.version}")
+    logger.info(f"SPADE version: {spade.__version__}")
+
     initial_agents: list[JID] = []
     for i in range(number_of_agents):
         initial_agents.append(JID.fromstr(f"{agent_name}_{i}@{xmpp_domain}"))
@@ -53,9 +57,15 @@ async def main():
         await asyncio.sleep(5)
         logger.info("Launcher initialized.")
 
-        logger.info("Waiting for agents...")
-        await spade.wait_until_finished([launcher])
+        logger.info("Waiting for coordinator...")
+        await spade.wait_until_finished(coordinator)
+        logger.info("Coordinator finished.")
+
+        logger.info("Waiting for launcher...")
+        await spade.wait_until_finished(launcher)
         logger.info("Launcher finished.")
+
+        logger.info("Waiting for agents...")
         await spade.wait_until_finished(launcher.agents)
         logger.info("Agents finished.")
 
@@ -77,18 +87,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    print("Starting...")
-    print(f"Python version: {sys.version}")
-    print(f"SPADE version: {spade.__version__}")
     setup_loggers()
-    # logging.basicConfig(
-    #     level=logging.INFO,
-    #     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    #     filename="agents.log",
-    #     filemode="a",  # Append mode
-    # )
-    # for handler in logging.root.handlers:
-    #     handler.addFilter(logging.Filter(""))
-    # logger = logging.getLogger(f"rf.sys.{__name__}")
-    # logger.info(f"SPADE version: {spade.__version__}")
     spade.run(main())

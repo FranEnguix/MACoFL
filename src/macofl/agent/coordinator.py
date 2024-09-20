@@ -3,7 +3,7 @@ from typing import Coroutine, Any
 from spade.template import Template
 
 from macofl.agent import AgentBase
-from macofl.behaviour.coordinator import PresenceCoordinatorFSM
+from macofl.behaviour.coordination import PresenceCoordinatorFSM
 
 
 class CoordinatorAgent(AgentBase):

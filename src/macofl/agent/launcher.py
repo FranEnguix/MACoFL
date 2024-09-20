@@ -26,7 +26,9 @@ class LauncherAgent(AgentBase):
         super().__init__(
             jid, password, max_message_size, web_address, web_port, verify_security
         )
-        self.logger.debug("Initialized")
+        self.logger.debug(
+            f"Agents to launch: {[j.bare() for j in self.agents_to_launch]}"
+        )
 
     async def setup(self) -> Coroutine[Any, Any, None]:
         self.setup_presence()

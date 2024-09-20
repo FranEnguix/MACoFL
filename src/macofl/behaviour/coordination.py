@@ -5,10 +5,9 @@ from aioxmpp import JID
 from spade.behaviour import FSMBehaviour, State
 from spade.message import Message
 
-from macofl.agent import AgentNodeBase
-
 if TYPE_CHECKING:
     from macofl.agent.coordinator import CoordinatorAgent
+    from macofl.agent import AgentNodeBase
 
 
 class AvailableNodeState(State):
@@ -65,6 +64,7 @@ class SubscriptionNodeState(State):
             message.body = "ready to start"
             message.set_metadata("presence", "sync")
             await self.send(message)
+            agent.logger.debug(f"'ready to start' message sent to {coordinator}")
         elif not agent.is_presence_completed():
             # agent.logger.debug(f"Neighbour's subscription status is {subscription_status}")
             contacts: dict[JID, dict] = agent.presence.get_contacts()
@@ -80,6 +80,7 @@ class SubscriptionNodeState(State):
                 agent.logger.debug(
                     f"Sent subscription request to {jid} because status is '{status}'."
                 )
+            await asyncio.sleep(2)
 
         msg = await self.receive(timeout=1)
         if msg and msg.body == "start the algorithm":
@@ -215,8 +216,11 @@ class PresenceCoordinatorFSM(FSMBehaviour):
         self.coordinated_agents = coordinated_agents
         super().__init__()
 
-    def setup(self) -> None:
+    async def on_start(self) -> None:
         agent: CoordinatorAgent = self.agent
+        agent.logger.debug(f"PresenceCoordinatorFSM started.")
+
+    def setup(self) -> None:
         self.add_state(
             name="available",
             state=AvailableCoordinatorState(self.coordinated_agents),
@@ -231,7 +235,6 @@ class PresenceCoordinatorFSM(FSMBehaviour):
         self.add_transition(source="available", dest="subscription")
         self.add_transition(source="subscription", dest="subscription")
         self.add_transition(source="subscription", dest="wait")
-        agent.logger.debug(f"PresenceCoordinatorFSM initializated.")
 
     async def on_end(self) -> Coroutine[Any, Any, None]:
         agent: CoordinatorAgent = self.agent

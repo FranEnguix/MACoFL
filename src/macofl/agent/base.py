@@ -1,12 +1,14 @@
 import logging
-from typing import Optional
+from typing import Coroutine, Optional, Any
 
 from aioxmpp import JID
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour
 from spade.message import Message
+from spade.template import Template
 
 from macofl.message import MultipartHandler
+from macofl.behaviour.coordination import PresenceNodeFSM
 
 
 class AgentBase(Agent):
@@ -85,6 +87,7 @@ class AgentNodeBase(AgentBase):
         self.post_coordination_behaviours = (
             [] if post_coordination_behaviours is None else post_coordination_behaviours
         )
+        self.coordination_fsm: PresenceNodeFSM = None
         super().__init__(
             jid=jid,
             password=password,
@@ -93,6 +96,13 @@ class AgentNodeBase(AgentBase):
             web_port=web_port,
             verify_security=verify_security,
         )
+
+    def setup(self) -> Coroutine[Any, Any, None]:
+        if self.coordinator is not None:
+            self.coordination_fsm = PresenceNodeFSM(self.coordinator)
+            template = Template()
+            template.set_metadata("presence", "sync")
+            self.add_behaviour(self.coordination_fsm, template)
 
     def subscribe_to_neighbours(self) -> None:
         for jid in self.neighbours:
