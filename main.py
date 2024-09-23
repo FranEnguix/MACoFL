@@ -12,7 +12,7 @@ from macofl.agent import CoordinatorAgent, LauncherAgent
 
 async def main():
     xmpp_domain = "localhost"
-    agent_name = "akkk"
+    agent_name = "ag"
     max_message_size = 250_000  # do not be close to 262 144
     number_of_agents = 10
 
@@ -34,6 +34,7 @@ async def main():
         coordinated_agents=initial_agents,
         verify_security=False,
     )
+    await asyncio.sleep(5)
 
     logger.info("Initializating launcher...")
     launcher = LauncherAgent(
@@ -72,7 +73,6 @@ async def main():
     except Exception as e:
         logger.error(e)
         traceback.print_exc()
-        print("Force Stopping...")
 
     finally:
         logger.info("Stopping...")
@@ -87,5 +87,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    setup_loggers()
+    setup_loggers(general_level=logging.INFO)
     spade.run(main())

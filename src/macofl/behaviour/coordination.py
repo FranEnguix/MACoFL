@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 from typing import Coroutine, Any, TYPE_CHECKING
 
 from aioxmpp import JID
@@ -27,8 +28,7 @@ class AvailableNodeState(State):
             message.body = "ready to subscribe"
             message.set_metadata("presence", "sync")
             await self.send(message)
-            agent.logger.debug(f"Ready message sent to {coordinator}.")
-        self.loops += 1
+            agent.logger.debug(f"'{message.body}' message sent to {coordinator}.")
 
     async def run(self) -> None:
         agent: AgentNodeBase = self.agent
@@ -36,8 +36,11 @@ class AvailableNodeState(State):
         msg = await self.receive(timeout=1)
         if msg and msg.body == "start to subscribe":
             jid = msg.sender.bare()
-            agent.logger.debug(f"Start to subscribe message received from {jid}.")
+            agent.logger.debug(f"'{msg.body}' message received from {jid}.")
             self.set_next_state("subscription")
+
+    async def on_end(self) -> None:
+        self.loops += 1
 
 
 class SubscriptionNodeState(State):
@@ -50,49 +53,59 @@ class SubscriptionNodeState(State):
 
     async def on_start(self) -> None:
         if self.loops < 1:
-            agent: AgentNodeBase = self.agent
-            agent.logger.debug(f"Subscribing to neighbours...")
-            agent.subscribe_to_neighbours()
-        self.loops += 1
+            try:
+                agent: AgentNodeBase = self.agent
+                agent.logger.debug(f"Subscribing to neighbours...")
+                agent.subscribe_to_neighbours()
+            except:
+                traceback.print_exc()
 
     async def run(self) -> None:
-        agent: AgentNodeBase = self.agent
-        if not self.ready_to_start and agent.is_presence_completed():
-            self.ready_to_start = True
-            coordinator = str(self.coordinator.bare())
-            message = Message(to=coordinator, sender=str(agent.jid.bare()))
-            message.body = "ready to start"
-            message.set_metadata("presence", "sync")
-            await self.send(message)
-            agent.logger.debug(f"'ready to start' message sent to {coordinator}")
-        elif not agent.is_presence_completed():
-            # agent.logger.debug(f"Neighbour's subscription status is {subscription_status}")
-            contacts: dict[JID, dict] = agent.presence.get_contacts()
-            subscription_status = [
-                (str(jid.bare()), data["subscription"])
-                for jid, data in contacts.items()
-            ]
-            agent.logger.debug(
-                f"Neighbour's subscription status is {subscription_status}"
-            )
-            for jid, status in agent.get_non_subscribe_both_neighbours().items():
-                agent.presence.subscribe(jid)
+        try:
+            agent: AgentNodeBase = self.agent
+            if not self.ready_to_start and agent.is_presence_completed():
+                self.ready_to_start = True
+                coordinator = str(self.coordinator.bare())
+                message = Message(to=coordinator, sender=str(agent.jid.bare()))
+                message.body = "ready to start"
+                message.set_metadata("presence", "sync")
+                await self.send(message)
+                agent.logger.debug(f"'{message.body}' message sent to {coordinator}")
+            elif not agent.is_presence_completed():
+                # agent.logger.debug(f"Neighbour's subscription status is {subscription_status}")
+                contacts: dict[JID, dict] = agent.presence.get_contacts()
+                subscription_status = [
+                    (str(jid.bare()), data["subscription"])
+                    for jid, data in contacts.items()
+                ]
                 agent.logger.debug(
-                    f"Sent subscription request to {jid} because status is '{status}'."
+                    f"Neighbour's subscription status is {subscription_status}"
                 )
-            await asyncio.sleep(2)
+                for jid, status in agent.get_non_subscribe_both_neighbours().items():
+                    j = str(jid.bare())
+                    agent.presence.subscribe(j)
+                    agent.logger.debug(
+                        f"Sent subscription request to {j} because status is '{status}'."
+                    )
+                await asyncio.sleep(5)
 
-        msg = await self.receive(timeout=1)
-        if msg and msg.body == "start the algorithm":
-            jid = msg.sender.bare()
-            agent.logger.debug(f"'start the algorithm' message received from {jid}.")
-            for behaviour in agent.post_coordination_behaviours:
-                agent.add_behaviour(behaviour)
-                agent.logger.debug(f"Behaviour {type(behaviour)} added.")
-            self.kill()
-        else:
-            self.set_next_state("subscription")
-        # self.set_next_state("wait")
+            msg = await self.receive(timeout=1)
+            if msg and msg.body == "start the algorithm":
+                jid = msg.sender.bare()
+                agent.logger.debug(f"'{msg.body}' message received from {jid}.")
+                for behaviour in agent.post_coordination_behaviours:
+                    agent.add_behaviour(behaviour)
+                    agent.logger.debug(f"Behaviour {type(behaviour)} added.")
+                agent.logger.info("Coordination phase ended successfully.")
+                self.kill()
+            else:
+                self.set_next_state("subscription")
+            # self.set_next_state("wait")
+        except:
+            traceback.print_exc()
+
+    async def on_end(self) -> None:
+        self.loops += 1
 
 
 class PresenceNodeFSM(FSMBehaviour):
@@ -125,17 +138,16 @@ class PresenceNodeFSM(FSMBehaviour):
 class AvailableCoordinatorState(State):
 
     def __init__(self, coordinated_agents: list[JID]):
-        self.loop: int = 0
+        self.loops: int = 0
         self.ready_agents: dict[str, bool] = {
             str(jid.bare()): False for jid in coordinated_agents
         }
         super().__init__()
 
     async def on_start(self) -> None:
-        if self.loop < 1:
+        if self.loops < 1:
             agent: CoordinatorAgent = self.agent
             agent.logger.debug(f"AvailableCoordinatorState: {self.ready_agents}.")
-        self.loop += 1
 
     async def run(self) -> None:
         agent: CoordinatorAgent = self.agent
@@ -146,17 +158,21 @@ class AvailableCoordinatorState(State):
                 jid = msg.sender.bare()
                 self.ready_agents[str(jid)] = True
                 agent.logger.debug(f"AvailableCoordinatorState: {self.ready_agents}.")
-                agent.logger.debug(f"Ready to subscribe message received from {jid}.")
+                agent.logger.debug(f"'{msg.body}' message received from {jid}.")
 
         if self._are_all_agents_ready():
+            body = "start to subscribe"
             for jid in self.ready_agents.keys():
                 msg = Message(to=jid, sender=str(agent.jid.bare()))
-                msg.body = "start to subscribe"
+                msg.body = body
                 msg.set_metadata("presence", "sync")
                 await self.send(msg)
 
-            agent.logger.debug(f"All start to subscribe messages sent.")
+            agent.logger.info(f"All '{body}' messages sent.")
             self.set_next_state("subscription")
+
+    async def on_end(self) -> None:
+        self.loops += 1
 
     def _are_all_agents_ready(self) -> bool:
         return all(self.ready_agents.values())
@@ -165,17 +181,16 @@ class AvailableCoordinatorState(State):
 class SubscriptionCoordinatorState(State):
 
     def __init__(self, coordinated_agents: list[JID]):
-        self.loop: int = 0
+        self.loops: int = 0
         self.ready_agents: dict[str, bool] = {
             str(jid.bare()): False for jid in coordinated_agents
         }
         super().__init__()
 
     async def on_start(self) -> None:
-        if self.loop < 1:
+        if self.loops < 1:
             agent: CoordinatorAgent = self.agent
             agent.logger.debug(f"SubscriptionCoordinatorState: {self.ready_agents}.")
-        self.loop += 1
 
     async def run(self) -> None:
         agent: CoordinatorAgent = self.agent
@@ -187,18 +202,22 @@ class SubscriptionCoordinatorState(State):
                 agent.logger.debug(
                     f"SubscriptionCoordinatorState: {self.ready_agents}."
                 )
-                agent.logger.debug(f"Ready to start message received from {jid}.")
+                agent.logger.debug(f"'{msg.body}' message received from {jid}.")
 
         if self._are_all_agents_ready():
+            body = "start the algorithm"
             for jid in self.ready_agents.keys():
                 msg = Message(to=jid, sender=str(agent.jid.bare()))
-                msg.body = "start the algorithm"
+                msg.body = body
                 msg.set_metadata("presence", "sync")
                 await self.send(msg)
-                agent.logger.debug(f"All start the algorithm messages sent.")
-                self.set_next_state("wait")
+            agent.logger.info(f"All {body} messages sent.")
+            self.set_next_state("wait")
         else:
             self.set_next_state("subscription")
+
+    async def on_end(self) -> None:
+        self.loops += 1
 
     def _are_all_agents_ready(self) -> bool:
         return all(self.ready_agents.values())
@@ -207,7 +226,7 @@ class SubscriptionCoordinatorState(State):
 class WaitState(State):
 
     async def run(self) -> None:
-        await asyncio.sleep(180)
+        await asyncio.sleep(10)
 
 
 class PresenceCoordinatorFSM(FSMBehaviour):

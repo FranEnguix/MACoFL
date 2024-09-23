@@ -1,4 +1,5 @@
 import logging
+import traceback
 from typing import Coroutine, Optional, Any
 
 from aioxmpp import JID
@@ -30,6 +31,9 @@ class AgentBase(Agent):
         self.web_port = web_port
         self._multipart_handler = MultipartHandler()
         super().__init__(jid=jid, password=password, verify_security=verify_security)
+
+    async def setup(self) -> None:
+        self.setup_presence()
 
     async def send(
         self, message: Message, behaviour: Optional[CyclicBehaviour] = None
@@ -97,7 +101,8 @@ class AgentNodeBase(AgentBase):
             verify_security=verify_security,
         )
 
-    def setup(self) -> Coroutine[Any, Any, None]:
+    async def setup(self) -> Coroutine[Any, Any, None]:
+        await super().setup()
         if self.coordinator is not None:
             self.coordination_fsm = PresenceNodeFSM(self.coordinator)
             template = Template()
@@ -105,14 +110,17 @@ class AgentNodeBase(AgentBase):
             self.add_behaviour(self.coordination_fsm, template)
 
     def subscribe_to_neighbours(self) -> None:
-        for jid in self.neighbours:
-            self.presence.subscribe(str(jid.bare()))
-            self.logger.debug(f"Subscription request sent to {jid}")
+        try:
+            for jid in self.neighbours:
+                self.presence.subscribe(str(jid.bare()))
+                self.logger.debug(f"Subscription request sent to {jid}")
+        except:
+            traceback.print_exc()
 
-    def get_non_subscribe_both_neighbours(self) -> dict[str, str]:
+    def get_non_subscribe_both_neighbours(self) -> dict[JID, str]:
         contacts: dict[JID, dict] = self.presence.get_contacts()
         result = {
-            str(j.bare()): data["subscription"]
+            j.bare(): data["subscription"]
             for j, data in contacts.items()
             if j in self.neighbours and data["subscription"] != "both"
         }

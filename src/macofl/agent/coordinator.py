@@ -32,7 +32,7 @@ class CoordinatorAgent(AgentBase):
         )
 
     async def setup(self) -> Coroutine[Any, Any, None]:
-        self.setup_presence()
+        await super().setup()
         template = Template()
         template.set_metadata("presence", "sync")
         self.coordination_fsm = PresenceCoordinatorFSM(self.coordinated_agents)

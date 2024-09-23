@@ -37,6 +37,9 @@ class LauncherAgent(AgentBase):
         self.add_behaviour(Wait())
 
     async def launch_agents(self) -> Coroutine[Any, Any, None]:
+        self.logger.debug(
+            f"Initializating launch of {[str(j.bare()) for j in self.agents_to_launch]}"
+        )
         for agent_jid in self.agents_to_launch:
             neighbour_jids = [j for j in self.agents_to_launch if j != agent_jid]
             agent = AgentNodeBase(
