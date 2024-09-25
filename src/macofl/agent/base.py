@@ -106,7 +106,7 @@ class AgentNodeBase(AgentBase):
         if self.coordinator is not None:
             self.coordination_fsm = PresenceNodeFSM(self.coordinator)
             template = Template()
-            template.set_metadata("presence", "sync")
+            template.set_metadata("rf.presence", "sync")
             self.add_behaviour(self.coordination_fsm, template)
 
     def subscribe_to_neighbours(self) -> None:

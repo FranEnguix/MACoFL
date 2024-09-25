@@ -15,6 +15,7 @@ async def main():
     agent_name = "ag"
     max_message_size = 250_000  # do not be close to 262 144
     number_of_agents = 10
+    number_of_observers = 2
 
     logger = logging.getLogger("rf.log.main")
 
@@ -25,6 +26,10 @@ async def main():
     initial_agents: list[JID] = []
     for i in range(number_of_agents):
         initial_agents.append(JID.fromstr(f"{agent_name}_{i}@{xmpp_domain}"))
+
+    observer_jids: list[JID] = []
+    for i in range(number_of_observers):
+        observer_jids.append(JID.fromstr(f"obs_{i}@{xmpp_domain}"))
 
     logger.info("Initializating coordinator...")
     coordinator = CoordinatorAgent(
@@ -42,7 +47,7 @@ async def main():
         password="123",
         max_message_size=max_message_size,
         agents_coordinator=coordinator.jid,
-        agents_observers=[],
+        agents_observers=observer_jids,
         agents_to_launch=initial_agents,
         verify_security=False,
     )

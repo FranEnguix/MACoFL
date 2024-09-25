@@ -26,7 +26,7 @@ class AvailableNodeState(State):
             coordinator = str(self.coordinator.bare())
             message = Message(to=coordinator, sender=str(agent.jid.bare()))
             message.body = "ready to subscribe"
-            message.set_metadata("presence", "sync")
+            message.set_metadata("rf.presence", "sync")
             await self.send(message)
             agent.logger.debug(f"'{message.body}' message sent to {coordinator}.")
 
@@ -68,7 +68,7 @@ class SubscriptionNodeState(State):
                 coordinator = str(self.coordinator.bare())
                 message = Message(to=coordinator, sender=str(agent.jid.bare()))
                 message.body = "ready to start"
-                message.set_metadata("presence", "sync")
+                message.set_metadata("rf.presence", "sync")
                 await self.send(message)
                 agent.logger.debug(f"'{message.body}' message sent to {coordinator}")
             elif not agent.is_presence_completed():

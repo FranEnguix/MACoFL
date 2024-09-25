@@ -6,7 +6,7 @@ from macofl.agent import AgentBase
 from macofl.behaviour.coordination import PresenceCoordinatorFSM
 
 
-class CoordinatorAgent(AgentBase):
+class ObserverAgent(AgentBase):
 
     def __init__(
         self,
