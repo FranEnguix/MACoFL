@@ -10,6 +10,10 @@ if TYPE_CHECKING:
     from macofl.agent.coordinator import CoordinatorAgent
     from macofl.agent import AgentNodeBase
 
+# --------------------------------------------- #
+# --------------------------------------------- #
+# --------------------------------------------- #
+
 
 class AvailableNodeState(State):
 
@@ -231,7 +235,10 @@ class WaitState(State):
 
 class PresenceCoordinatorFSM(FSMBehaviour):
 
-    def __init__(self, coordinated_agents: list[JID]):
+    def __init__(
+        self,
+        coordinated_agents: list[JID],
+    ):
         self.coordinated_agents = coordinated_agents
         super().__init__()
 

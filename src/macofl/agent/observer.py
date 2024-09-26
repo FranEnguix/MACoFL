@@ -13,15 +13,19 @@ class ObserverAgent(AgentBase):
         jid: str,
         password: str,
         max_message_size: int,
-        coordinated_agents: list[JID],
         web_address: str = "0.0.0.0",
         web_port: int = 10000,
         verify_security: bool = False,
     ):
-        self.coordinated_agents = (
-            [] if coordinated_agents is None else coordinated_agents
-        )
+        self.agents_observed: list[JID] = []
         self.coordination_fsm: PresenceCoordinatorFSM = None
+        self.observation_theme_behaviours = {
+            "message_sent": None,
+            "message_received": None,
+            "iteration_time": None,
+            "accuracy": None,
+            "loss": None,
+        }
         super().__init__(
             jid,
             password,
@@ -33,7 +37,8 @@ class ObserverAgent(AgentBase):
 
     async def setup(self) -> Coroutine[Any, Any, None]:
         await super().setup()
-        template = Template()
-        template.set_metadata("rf.presence", "sync")
+        for theme in self.observation_theme_behaviours.keys():
+            template = Template(metadata={"rf.observe": theme})
+            self.observation_theme_behaviours()
         self.coordination_fsm = PresenceCoordinatorFSM(self.coordinated_agents)
         self.add_behaviour(self.coordination_fsm, template)

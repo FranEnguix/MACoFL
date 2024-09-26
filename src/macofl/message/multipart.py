@@ -1,4 +1,5 @@
 import copy
+import uuid
 
 from aioxmpp import JID
 from spade.message import Message
@@ -8,26 +9,61 @@ class MultipartHandler:
     """
     Class created to handle the SPADE agents maximum message length limitation. The aioxmpp package maximum
     content length is 256 * 1024, so this class is able to split a content that exceeds a desired size into messages
-    of the same desired maximum length. This class inyects a header into the messages content to be able to
-    rebuild the messages in the correct order. The header is "multipart#[index]/[total]|" where "index"
+    of the same desired maximum length. This class adds a header into the messages content to be able to
+    rebuild the messages in the correct order. The header is "multipart#[index]/[total]#[uuid4]|" where "index"
     is the id of the current message, starting by 1, and "total" is the number of messages needed to rebuild the
     original content.
     """
 
     def __init__(self) -> None:
-        self.multipart_message_storage: dict[JID, str] = {}
-        self.metadata_split: str = "|"
-        self.metadata_header_size: int = len(
-            f"multipart#9999/9999{self.metadata_split}"
+        # the storage is: { "ag1@localhost": { "uuid4": [ None, "msg2" ] } }
+        self.__multipart_message_storage: dict[JID, dict[str, list[str]]] = {}
+        self.__metadata_start: str = "multipart"
+        self.__metadata_split_token: str = "#"
+        self.__metadata_uuid: str = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
+        self.__metadata_num_messages: int = 999999
+        self.__metadata_end_token: str = "|"
+        metadata_header = (
+            self.__metadata_start
+            + self.__metadata_split_token
+            + f"{self.__metadata_num_messages}/{self.__metadata_num_messages}"
+            + self.__metadata_split_token
+            + self.__metadata_uuid
+            + self.__metadata_end_token
         )
+        self.__metadata_header_size: int = len(metadata_header)
+
+    @property
+    def metadata_header_size(self) -> int:
+        return self.__metadata_header_size
 
     def is_multipart(self, message: Message) -> bool:
-        return message.body.startswith("multipart#")
+        return message.body.startswith(
+            self.__metadata_start + self.__metadata_split_token
+        )
+
+    def _get_header(self, content: str) -> str:
+        return content.split(self.__metadata_end_token)[0]
+
+    def _get_part_number(self, content: str) -> int:
+        header = self._get_header(content=content)
+        part_number = header.split(self.__metadata_split_token)[1].split("/")[0]
+        return int(part_number)
+
+    def _get_total_parts(self, content: str) -> int:
+        header = self._get_header(content=content)
+        total_parts = header.split(self.__metadata_split_token)[1].split("/")[1]
+        return int(total_parts)
+
+    def _get_uuid4(self, content: str) -> str:
+        header = self._get_header(content=content)
+        uuid4 = header.split(self.__metadata_split_token)[2]
+        return uuid4
 
     def any_multipart_waiting(self) -> bool:
-        return len(self.multipart_message_storage.keys()) > 0
+        return len(self.__multipart_message_storage.keys()) > 0
 
-    def is_multipart_complete(self, message: Message) -> bool | None:
+    def _is_multipart_complete(self, message: Message) -> bool | None:
         """
         Returns a bool to denote whether the message is complete and ready to be rebuilded.
         Returns None if the sender has not multipart messages stored.
@@ -39,22 +75,29 @@ class MultipartHandler:
             bool | None: True if multipart is complete, False otherwise and None if the sender has not multipart messages stored.
         """
         sender = message.sender
-        if not sender in self.multipart_message_storage.keys():
+        uuid4 = self._get_uuid4(message.body)
+        if (
+            not sender in self.__multipart_message_storage.keys()
+            or not uuid4 in self.__multipart_message_storage[sender].keys()
+        ):
             return None
-        for part in self.multipart_message_storage[sender]:
+        for part in self.__multipart_message_storage[sender][uuid4]:
             if part is None:
                 return False
         return True
 
-    def rebuild_multipart_content(self, sender: JID) -> str:
+    def _rebuild_multipart_content(self, sender: JID, uuid4: str) -> str:
         content = ""
-        for part in self.multipart_message_storage[sender]:
+        for part in self.__multipart_message_storage[sender][uuid4]:
             content += part
         return content
 
-    def remove_data(self, sender: JID) -> None:
-        if sender in self.multipart_message_storage.keys():
-            del self.multipart_message_storage[sender]
+    def __remove_data(self, sender: JID, uuid4: str) -> None:
+        if sender in self.__multipart_message_storage.keys():
+            if uuid4 in self.__multipart_message_storage[sender].keys():
+                del self.__multipart_message_storage[sender][uuid4]
+                if len(self.__multipart_message_storage[sender].keys()) == 0:
+                    del self.__multipart_message_storage[sender]
 
     def rebuild_multipart(self, message: Message) -> Message | None:
         """
@@ -68,29 +111,36 @@ class MultipartHandler:
             Message | None: The rebuilded message with all the multiparts content in its body property.
             Returns None if the message is not complete or it is not a multipart message.
         """
-        # NOTE multipart header: multipart#1/2|
-        # multipart_meta = message.get_metadata("multipart")
+        # NOTE multipart header: multipart#1/2#xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx|
         if self.is_multipart(message):
             sender = message.sender
-            multipart_meta = message.body.split(self.metadata_split)[0]
-            multipart_meta_parts = multipart_meta.split("#")[1]
-            part_number = int(multipart_meta_parts.split("/")[0])
-            total_parts = int(multipart_meta_parts.split("/")[1])
-            if not sender in self.multipart_message_storage.keys():
-                self.multipart_message_storage[sender] = [None] * total_parts
-            self.multipart_message_storage[sender][part_number - 1] = message.body[
-                len(multipart_meta + self.metadata_split) :
-            ]
-            if self.is_multipart_complete(message):
-                message.body = self.rebuild_multipart_content(sender=sender)
-                self.remove_data(sender=sender)
+            multipart_meta = message.body.split(self.__metadata_end_token)[0]
+            part_number = self._get_part_number(message.body)
+            total_parts = self._get_total_parts(message.body)
+            uuid4 = self._get_uuid4(message.body)
+            if not sender in self.__multipart_message_storage.keys():
+                self.__multipart_message_storage[sender] = {}
+            if not uuid4 in self.__multipart_message_storage[sender].keys():
+                self.__multipart_message_storage[sender][uuid4] = [None] * total_parts
+            self.__multipart_message_storage[sender][uuid4][part_number - 1] = (
+                message.body[len(multipart_meta + self.__metadata_end_token) :]
+            )
+            if self._is_multipart_complete(message):
+                message.body = self._rebuild_multipart_content(
+                    sender=sender, uuid4=uuid4
+                )
+                self.__remove_data(sender=sender, uuid4=uuid4)
                 return message
         return None
 
-    def divide_content(self, content: str, size: int) -> list[str]:
+    def __divide_content(self, content: str, size: int) -> list[str]:
+        if size <= 0:
+            raise RuntimeError(
+                f"The size must be a positive integer, but the current value is: {size}"
+            )
         return [content[i : i + size] for i in range(0, len(content), size)]
 
-    def generate_multipart_content(
+    def _generate_multipart_content(
         self, content: str, max_size: int
     ) -> list[str] | None:
         """
@@ -105,12 +155,18 @@ class MultipartHandler:
             list[str] | None: List of multipart message content to put in the body of the SPADE messages
             or None if the content length does not exceed the max_size tanking into account the multipart header metadata.
         """
-        if len(content) > max_size:
-            multiparts = self.divide_content(
-                content, max_size - self.metadata_header_size
+        if max_size - self.__metadata_header_size <= 0:
+            raise RuntimeError(
+                f"The max_size message must be increased at least to {self.__metadata_header_size + 1}"
             )
+
+        if len(content) > max_size:
+            multiparts = self.__divide_content(
+                content, max_size - self.__metadata_header_size
+            )
+            uuid4 = str(uuid.uuid4())
             return [
-                f"multipart#{i + 1}/{len(multiparts)}{self.metadata_split}{part}"
+                f"{self.__metadata_start}{self.__metadata_split_token}{i + 1}/{len(multiparts)}{self.__metadata_split_token}{uuid4}{self.__metadata_end_token}{part}"
                 for i, part in enumerate(multiparts)
             ]
         return None
@@ -130,7 +186,9 @@ class MultipartHandler:
         Returns:
             list[Message] | None: A list of multipart messages to send or None if the content does not exceed the maximum size.
         """
-        multiparts = self.generate_multipart_content(content=content, max_size=max_size)
+        multiparts = self._generate_multipart_content(
+            content=content, max_size=max_size
+        )
         if multiparts is not None:
             multiparts_messages = []
             for multipart in multiparts:

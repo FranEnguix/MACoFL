@@ -33,7 +33,7 @@ class AgentBase(Agent):
         super().__init__(jid=jid, password=password, verify_security=verify_security)
 
     async def setup(self) -> None:
-        self.setup_presence()
+        self.setup_presence_handlers()
 
     async def send(
         self, message: Message, behaviour: Optional[CyclicBehaviour] = None
@@ -54,6 +54,22 @@ class AgentBase(Agent):
                 f"Message ({msg.sender.bare()}) -> ({msg.to.bare()}): {msg.body}"
             )
 
+    async def receive(
+        self, behaviour: CyclicBehaviour, timeout: Optional[float] = 0
+    ) -> Message | None:
+        msg: Message = await behaviour.receive(timeout=timeout)
+        if msg is not None:
+            if self._multipart_handler.is_multipart(msg):
+                header = self._multipart_handler._get_header(msg.body)
+                self.logger.debug(
+                    f"Multipart message arrived from {msg.sender}: {header} with length {len(msg.body)}"
+                )
+                return self._multipart_handler.rebuild_multipart(message=msg)
+            self.logger.debug(
+                f"Message arrived from {msg.sender}: with length {len(msg.body)}"
+            )
+        return msg
+
     def on_available(self, jid: str, stanza):
         self.logger.debug(f"{jid} is available with stanza {stanza}.")
 
@@ -65,7 +81,7 @@ class AgentBase(Agent):
         self.presence.approve(jid)
         self.logger.debug(f"{jid} approved.")
 
-    def setup_presence(self) -> None:
+    def setup_presence_handlers(self) -> None:
         self.presence.on_subscribe = self.on_subscribe
         self.presence.on_subscribed = self.on_subscribed
         self.presence.on_available = self.on_available

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import traceback
 from typing import Coroutine, Any, TYPE_CHECKING
 
@@ -11,9 +12,14 @@ if TYPE_CHECKING:
     from macofl.agent import AgentNodeBase
 
 
-class ObserveBehaviour(CyclicBehaviour):
+class ObserverBehaviour(CyclicBehaviour):
 
-    def __init__(
-        self,
-    ):
+    def __init__(self, logger_name: str):
+        self.logger = logging.getLogger(logger_name)
         super().__init__()
+
+    async def run(self) -> None:
+        await asyncio.sleep(0.1)
+        msg = await self.receive(1)
+        if msg:
+            self.logger.info(msg.body)

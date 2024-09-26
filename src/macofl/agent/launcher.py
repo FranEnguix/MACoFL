@@ -31,7 +31,7 @@ class LauncherAgent(AgentBase):
         )
 
     async def setup(self) -> Coroutine[Any, Any, None]:
-        self.setup_presence()
+        self.setup_presence_handlers()
         self.presence.set_available()
         self.add_behaviour(LaunchAgentsBehaviour())
         self.add_behaviour(Wait())
