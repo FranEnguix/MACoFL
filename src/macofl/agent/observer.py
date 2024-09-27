@@ -3,7 +3,7 @@ from typing import Coroutine, Any
 from spade.template import Template
 
 from macofl.agent import AgentBase
-from macofl.behaviour.coordination import PresenceCoordinatorFSM
+from macofl.behaviour.observer import ObserverBehaviour
 
 
 class ObserverAgent(AgentBase):
@@ -18,13 +18,11 @@ class ObserverAgent(AgentBase):
         verify_security: bool = False,
     ):
         self.agents_observed: list[JID] = []
-        self.coordination_fsm: PresenceCoordinatorFSM = None
         self.observation_theme_behaviours = {
-            "message_sent": None,
-            "message_received": None,
-            "iteration_time": None,
+            "message": None,
             "accuracy": None,
             "loss": None,
+            "iteration": None,
         }
         super().__init__(
             jid,
@@ -39,6 +37,6 @@ class ObserverAgent(AgentBase):
         await super().setup()
         for theme in self.observation_theme_behaviours.keys():
             template = Template(metadata={"rf.observe": theme})
-            self.observation_theme_behaviours()
-        self.coordination_fsm = PresenceCoordinatorFSM(self.coordinated_agents)
-        self.add_behaviour(self.coordination_fsm, template)
+            behaviour = ObserverBehaviour(f"rf.{theme}.{self.name}")
+            self.observation_theme_behaviours[theme] = behaviour
+            self.add_behaviour(behaviour, template)

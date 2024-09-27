@@ -1,11 +1,8 @@
 import asyncio
 import logging
-import traceback
-from typing import Coroutine, Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
-from aioxmpp import JID
-from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
-from spade.message import Message
+from spade.behaviour import CyclicBehaviour
 
 if TYPE_CHECKING:
     from macofl.agent.coordinator import CoordinatorAgent

@@ -7,7 +7,7 @@ import sys
 from aioxmpp import JID
 
 from macofl.log import setup_loggers
-from macofl.agent import CoordinatorAgent, LauncherAgent
+from macofl.agent import CoordinatorAgent, LauncherAgent, ObserverAgent
 
 
 async def main():
@@ -15,7 +15,7 @@ async def main():
     agent_name = "ag"
     max_message_size = 250_000  # do not be close to 262 144
     number_of_agents = 10
-    number_of_observers = 2
+    number_of_observers = 1
 
     logger = logging.getLogger("rf.log.main")
 
@@ -30,6 +30,7 @@ async def main():
     observer_jids: list[JID] = []
     for i in range(number_of_observers):
         observer_jids.append(JID.fromstr(f"obs_{i}@{xmpp_domain}"))
+    observers: list[ObserverAgent] = []
 
     logger.info("Initializating coordinator...")
     coordinator = CoordinatorAgent(
@@ -40,6 +41,15 @@ async def main():
         verify_security=False,
     )
     await asyncio.sleep(5)
+
+    for obs_jid in observer_jids:
+        obs = ObserverAgent(
+            jid=str(obs_jid),
+            password="123",
+            max_message_size=max_message_size,
+            verify_security=False,
+        )
+        observers.append(obs)
 
     logger.info("Initializating launcher...")
     launcher = LauncherAgent(
@@ -53,6 +63,12 @@ async def main():
     )
 
     try:
+        logger.info("Starting observers...")
+        for observer in observers:
+            await observer.start()
+        await asyncio.sleep(5)
+        logger.info("Observers initialized.")
+
         logger.info("Starting coordinator...")
         await coordinator.start()
         await asyncio.sleep(5)
