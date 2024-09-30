@@ -1,12 +1,7 @@
 import asyncio
 import logging
-from typing import Any, TYPE_CHECKING
 
 from spade.behaviour import CyclicBehaviour
-
-if TYPE_CHECKING:
-    from macofl.agent.coordinator import CoordinatorAgent
-    from macofl.agent import AgentNodeBase
 
 
 class ObserverBehaviour(CyclicBehaviour):

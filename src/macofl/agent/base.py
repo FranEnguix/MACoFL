@@ -8,8 +8,8 @@ from spade.behaviour import CyclicBehaviour
 from spade.message import Message
 from spade.template import Template
 
-from macofl.message import MultipartHandler
-from macofl.behaviour.coordination import PresenceNodeFSM
+from ..message import MultipartHandler
+from ..behaviour.coordination import PresenceNodeFSM
 
 
 class AgentBase(Agent):
@@ -93,8 +93,8 @@ class AgentNodeBase(AgentBase):
         jid: str,
         password: str,
         max_message_size: int,
-        observers: Optional[list[JID]],
-        neighbours: Optional[list[JID]],
+        observers: Optional[list[JID]] = None,
+        neighbours: Optional[list[JID]] = None,
         coordinator: Optional[JID] = None,
         post_coordination_behaviours: Optional[list[CyclicBehaviour]] = None,
         web_address: str = "0.0.0.0",

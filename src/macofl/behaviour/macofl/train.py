@@ -1,8 +1,13 @@
 import codecs
 import pickle
 import random
+from typing import TYPE_CHECKING
 
 from spade.behaviour import State
+from spade.message import Message
+
+if TYPE_CHECKING:
+    from macofl.agent.macofl import MacoflAgent
 
 
 class TrainState(State):
@@ -10,7 +15,11 @@ class TrainState(State):
     State in which the agent trains its model
     """
 
-    def consensus(self, msg):
+    def __init__(self):
+        self.agent: MacoflAgent
+        super().__init__()
+
+    def consensus(self, msg: Message):
         if self.agent.weights is not None and msg.body.split("|")[0] != "None":
             # Process message
             weights_and_losses = msg.body.split("|")

@@ -4,6 +4,6 @@ __author__ = """Francisco Enguix"""
 __email__ = "enguixfco@gmail.com"
 __version__ = "0.1.0"
 
-from macofl import agent, behaviour, log, message
+from . import agent, behaviour, dataset, log, message, nn
 
-__all__ = ["agent", "behaviour", "log", "message"]
+__all__ = ["agent", "behaviour", "dataset", "log", "message", "nn"]

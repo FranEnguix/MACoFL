@@ -2,6 +2,7 @@ import asyncio
 import spade
 import logging
 import traceback
+import uuid
 import sys
 
 from aioxmpp import JID
@@ -11,30 +12,34 @@ from macofl.agent import CoordinatorAgent, LauncherAgent, ObserverAgent
 
 
 async def main():
+    uuid4_enabled = True
     xmpp_domain = "localhost"
     agent_name = "ag"
     max_message_size = 250_000  # do not be close to 262 144
     number_of_agents = 10
     number_of_observers = 1
 
+    uuid4 = str(uuid.uuid4()) if uuid4_enabled else ""
+
     logger = logging.getLogger("rf.log.main")
 
     logger.info("Starting...")
     logger.info(f"Python version: {sys.version}")
     logger.info(f"SPADE version: {spade.__version__}")
+    logger.info(f"UUID4: {uuid4}")
 
     initial_agents: list[JID] = []
     for i in range(number_of_agents):
-        initial_agents.append(JID.fromstr(f"{agent_name}_{i}@{xmpp_domain}"))
+        initial_agents.append(JID.fromstr(f"{agent_name}_{i}_{uuid4}@{xmpp_domain}"))
 
     observer_jids: list[JID] = []
     for i in range(number_of_observers):
-        observer_jids.append(JID.fromstr(f"obs_{i}@{xmpp_domain}"))
+        observer_jids.append(JID.fromstr(f"obs_{i}_{uuid4}@{xmpp_domain}"))
     observers: list[ObserverAgent] = []
 
     logger.info("Initializating coordinator...")
     coordinator = CoordinatorAgent(
-        jid=f"coordinator@{xmpp_domain}",
+        jid=f"coordinator_{uuid4}@{xmpp_domain}",
         password="123",
         max_message_size=max_message_size,
         coordinated_agents=initial_agents,
@@ -53,7 +58,7 @@ async def main():
 
     logger.info("Initializating launcher...")
     launcher = LauncherAgent(
-        jid=f"launcher@{xmpp_domain}",
+        jid=f"launcher_{uuid4}@{xmpp_domain}",
         password="123",
         max_message_size=max_message_size,
         agents_coordinator=coordinator.jid,

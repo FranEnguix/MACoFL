@@ -20,6 +20,6 @@
 #     "Wait",
 # ]
 
-import coordination, launcher, observer
+from . import coordination, launcher, observer
 
 __all__ = ["coordination", "launcher", "observer"]

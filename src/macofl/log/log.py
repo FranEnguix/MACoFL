@@ -1,12 +1,36 @@
 import logging
+import os
 
 from typing import Optional
 
 
+class CsvFileHandler(logging.FileHandler):
+    def __init__(
+        self,
+        filename: str,
+        header: str,
+        mode: str = "a",
+        encoding: Optional[str] = None,
+        delay: bool = False,
+    ):
+        self.header = header
+        file_exists = os.path.exists(filename)
+        super().__init__(filename, mode=mode, encoding=encoding, delay=delay)
+        if not file_exists or mode == "w":
+            if not self.stream:
+                self.stream = self._open()
+            self.stream.write(self.header + "\n")
+            self.stream.flush()
+
+
 def _setup_filehandler_log(
-    filename: str, logger_name: str, level: Optional[int], formatter: logging.Formatter
+    filename: str,
+    logger_name: str,
+    level: int,
+    formatter: logging.Formatter,
+    header: str,
 ) -> None:
-    log_handler = logging.FileHandler(filename)
+    log_handler = CsvFileHandler(filename, header)
     log_handler.setLevel(level)
     log_handler.setFormatter(formatter)
     log = logging.getLogger(logger_name)
@@ -15,12 +39,16 @@ def _setup_filehandler_log(
 
 
 def setup_loggers(
-    general_level: Optional[int] = logging.DEBUG,
-    filehandler_level: Optional[int] = logging.INFO,
+    general_level: int = logging.DEBUG,
+    filehandler_level: int = logging.DEBUG,
 ) -> None:
     # Set up the base format and log levels for the different loggers
     formatter = logging.Formatter(
-        "%(asctime)s; %(name)s; %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        "%(asctime)s, %(name)s, %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
+    filehandler_formatter = logging.Formatter(
+        "%(asctime)s.%(msecs)03d, %(name)s, %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
 
     # General agent log
@@ -40,10 +68,23 @@ def setup_loggers(
 
     # Filehandlers logs
     filehandler_logs = [
-        ("message.log", "rf.message"),
-        ("accuracy.log", "rf.accuracy"),
-        ("loss.log", "rf.loss"),
-        ("iteration.log", "rf.iteration"),
+        (
+            "message.log",
+            "rf.message",
+            "log_timestamp,log_name,iteration_id,timestamp,sender,dest,type,size",
+        ),
+        (
+            "nn.log",
+            "rf.nn",
+            "log_timestamp,log_name,iteration_id,timestamp,agent,training_accuracy,training_loss,test_accuracy,test_loss",
+        ),
+        (
+            "iteration.log",
+            "rf.iteration",
+            "log_timestamp,log_name,iteration_id,timestamp,agent,seconds",
+        ),
     ]
-    for filename, logger_name in filehandler_logs:
-        _setup_filehandler_log(filename, logger_name, filehandler_level, formatter)
+    for filename, logger_name, header in filehandler_logs:
+        _setup_filehandler_log(
+            filename, logger_name, filehandler_level, filehandler_formatter, header
+        )

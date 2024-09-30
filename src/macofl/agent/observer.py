@@ -2,8 +2,8 @@ from aioxmpp import JID
 from typing import Coroutine, Any
 from spade.template import Template
 
-from macofl.agent import AgentBase
-from macofl.behaviour.observer import ObserverBehaviour
+from ..agent import AgentBase
+from ..behaviour.observer import ObserverBehaviour
 
 
 class ObserverAgent(AgentBase):
@@ -19,10 +19,9 @@ class ObserverAgent(AgentBase):
     ):
         self.agents_observed: list[JID] = []
         self.observation_theme_behaviours = {
-            "message": None,
-            "accuracy": None,
-            "loss": None,
-            "iteration": None,
+            "message": None,  # iteration id, log datetime, size, sender, dest
+            "nn": None,  # iteration id, log datetime, accuracy
+            "iteration": None,  # iteration id, start datetime, seconds to complete
         }
         super().__init__(
             jid,

@@ -7,8 +7,8 @@ from spade.behaviour import FSMBehaviour, State
 from spade.message import Message
 
 if TYPE_CHECKING:
-    from macofl.agent.coordinator import CoordinatorAgent
-    from macofl.agent import AgentNodeBase
+    from ..agent.coordinator import CoordinatorAgent
+    from ..agent import AgentNodeBase
 
 # --------------------------------------------- #
 # --------------------------------------------- #

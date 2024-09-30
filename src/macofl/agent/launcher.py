@@ -2,7 +2,7 @@ from aioxmpp import JID
 from typing import Coroutine, Any
 
 from macofl.agent import AgentBase, AgentNodeBase
-from macofl.behaviour import LaunchAgentsBehaviour, Wait
+from macofl.behaviour.launcher import LaunchAgentsBehaviour, Wait
 
 
 class LauncherAgent(AgentBase):
