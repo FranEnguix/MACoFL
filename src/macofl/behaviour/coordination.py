@@ -1,14 +1,14 @@
 import asyncio
 import traceback
-from typing import Coroutine, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from aioxmpp import JID
 from spade.behaviour import FSMBehaviour, State
 from spade.message import Message
 
 if TYPE_CHECKING:
-    from ..agent.coordinator import CoordinatorAgent
     from ..agent import AgentNodeBase
+    from ..agent.coordinator import CoordinatorAgent
 
 # --------------------------------------------- #
 # --------------------------------------------- #
@@ -26,7 +26,7 @@ class AvailableNodeState(State):
         if self.loops < 1:
             agent: AgentNodeBase = self.agent
             agent.presence.set_available()
-            agent.logger.debug(f"Available.")
+            agent.logger.debug("Available.")
             coordinator = str(self.coordinator.bare())
             message = Message(to=coordinator, sender=str(agent.jid.bare()))
             message.body = "ready to subscribe"
@@ -59,9 +59,9 @@ class SubscriptionNodeState(State):
         if self.loops < 1:
             try:
                 agent: AgentNodeBase = self.agent
-                agent.logger.debug(f"Subscribing to neighbours...")
+                agent.logger.debug("Subscribing to neighbours...")
                 agent.subscribe_to_neighbours()
-            except:
+            except Exception:
                 traceback.print_exc()
 
     async def run(self) -> None:
@@ -105,7 +105,7 @@ class SubscriptionNodeState(State):
             else:
                 self.set_next_state("subscription")
             # self.set_next_state("wait")
-        except:
+        except Exception:
             traceback.print_exc()
 
     async def on_end(self) -> None:
@@ -129,9 +129,9 @@ class PresenceNodeFSM(FSMBehaviour):
         self.add_transition(source="available", dest="subscription")
         self.add_transition(source="subscription", dest="subscription")
 
-    async def on_end(self) -> Coroutine[Any, Any, None]:
+    async def on_end(self) -> None:
         agent: AgentNodeBase = self.agent
-        agent.logger.debug(f"PresenceSetupFSM behaviour finished.")
+        agent.logger.debug("PresenceSetupFSM behaviour finished.")
 
 
 # --------------------------------------------- #
@@ -244,7 +244,7 @@ class PresenceCoordinatorFSM(FSMBehaviour):
 
     async def on_start(self) -> None:
         agent: CoordinatorAgent = self.agent
-        agent.logger.debug(f"PresenceCoordinatorFSM started.")
+        agent.logger.debug("PresenceCoordinatorFSM started.")
 
     def setup(self) -> None:
         self.add_state(
@@ -262,6 +262,6 @@ class PresenceCoordinatorFSM(FSMBehaviour):
         self.add_transition(source="subscription", dest="subscription")
         self.add_transition(source="subscription", dest="wait")
 
-    async def on_end(self) -> Coroutine[Any, Any, None]:
+    async def on_end(self) -> None:
         agent: CoordinatorAgent = self.agent
-        agent.logger.debug(f"PresenceCoordinatorFSM behaviour finished.")
+        agent.logger.debug("PresenceCoordinatorFSM behaviour finished.")

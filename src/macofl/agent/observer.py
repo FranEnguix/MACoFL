@@ -1,5 +1,6 @@
+from typing import Optional
+
 from aioxmpp import JID
-from typing import Coroutine, Any
 from spade.template import Template
 
 from ..agent import AgentBase
@@ -18,7 +19,7 @@ class ObserverAgent(AgentBase):
         verify_security: bool = False,
     ):
         self.agents_observed: list[JID] = []
-        self.observation_theme_behaviours = {
+        self.observation_theme_behaviours: dict[str, Optional[ObserverBehaviour]] = {
             "message": None,  # iteration id, log datetime, size, sender, dest
             "nn": None,  # iteration id, log datetime, accuracy
             "iteration": None,  # iteration id, start datetime, seconds to complete
@@ -32,9 +33,9 @@ class ObserverAgent(AgentBase):
             verify_security,
         )
 
-    async def setup(self) -> Coroutine[Any, Any, None]:
+    async def setup(self) -> None:
         await super().setup()
-        for theme in self.observation_theme_behaviours.keys():
+        for theme in self.observation_theme_behaviours:
             template = Template(metadata={"rf.observe": theme})
             behaviour = ObserverBehaviour(f"rf.{theme}.{self.name}")
             self.observation_theme_behaviours[theme] = behaviour

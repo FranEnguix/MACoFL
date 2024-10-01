@@ -1,6 +1,6 @@
 import logging
 import traceback
-from typing import Coroutine, Optional, Any
+from typing import Optional
 
 from aioxmpp import JID
 from spade.agent import Agent
@@ -8,8 +8,8 @@ from spade.behaviour import CyclicBehaviour
 from spade.message import Message
 from spade.template import Template
 
-from ..message import MultipartHandler
 from ..behaviour.coordination import PresenceNodeFSM
+from ..message import MultipartHandler
 
 
 class AgentBase(Agent):
@@ -38,8 +38,10 @@ class AgentBase(Agent):
     async def send(
         self, message: Message, behaviour: Optional[CyclicBehaviour] = None
     ) -> None:
-        messages: list[Message] = self._multipart_handler.generate_multipart_messages(
-            content=message.body, max_size=self.max_message_size, message_base=message
+        messages = self._multipart_handler.generate_multipart_messages(
+            content=message.body,
+            max_size=self.max_message_size,
+            message_base=message,
         )
         if messages is None:
             messages = [message]
@@ -60,7 +62,7 @@ class AgentBase(Agent):
         msg: Message = await behaviour.receive(timeout=timeout)
         if msg is not None:
             if self._multipart_handler.is_multipart(msg):
-                header = self._multipart_handler._get_header(msg.body)
+                header = self._multipart_handler.get_header(msg.body)
                 self.logger.debug(
                     f"Multipart message arrived from {msg.sender}: {header} with length {len(msg.body)}"
                 )
@@ -107,7 +109,7 @@ class AgentNodeBase(AgentBase):
         self.post_coordination_behaviours = (
             [] if post_coordination_behaviours is None else post_coordination_behaviours
         )
-        self.coordination_fsm: PresenceNodeFSM = None
+        self.coordination_fsm: PresenceNodeFSM | None = None
         super().__init__(
             jid=jid,
             password=password,
@@ -117,7 +119,7 @@ class AgentNodeBase(AgentBase):
             verify_security=verify_security,
         )
 
-    async def setup(self) -> Coroutine[Any, Any, None]:
+    async def setup(self) -> None:
         await super().setup()
         if self.coordinator is not None:
             self.coordination_fsm = PresenceNodeFSM(self.coordinator)
@@ -130,7 +132,7 @@ class AgentNodeBase(AgentBase):
             for jid in self.neighbours:
                 self.presence.subscribe(str(jid.bare()))
                 self.logger.debug(f"Subscription request sent to {jid}")
-        except:
+        except Exception:
             traceback.print_exc()
 
     def get_non_subscribe_both_neighbours(self) -> dict[JID, str]:
@@ -147,6 +149,6 @@ class AgentNodeBase(AgentBase):
 
     def is_presence_completed(self) -> bool:
         contacts: dict[JID, dict] = self.presence.get_contacts()
-        if not all(ag.bare() in contacts.keys() for ag in self.neighbours):
+        if not all(ag.bare() in contacts for ag in self.neighbours):
             return False
         return all(data["subscription"] == "both" for data in contacts.values())

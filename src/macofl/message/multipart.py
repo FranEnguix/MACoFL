@@ -17,7 +17,7 @@ class MultipartHandler:
 
     def __init__(self) -> None:
         # the storage is: { "ag1@localhost": { "uuid4": [ None, "msg2" ] } }
-        self.__multipart_message_storage: dict[JID, dict[str, list[str]]] = {}
+        self.__multipart_message_storage: dict[JID, dict[str, list[str | None]]] = {}
         self.__metadata_start: str = "multipart"
         self.__metadata_split_token: str = "#"
         self.__metadata_uuid: str = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
@@ -42,21 +42,21 @@ class MultipartHandler:
             self.__metadata_start + self.__metadata_split_token
         )
 
-    def _get_header(self, content: str) -> str:
+    def get_header(self, content: str) -> str:
         return content.split(self.__metadata_end_token)[0]
 
     def _get_part_number(self, content: str) -> int:
-        header = self._get_header(content=content)
+        header = self.get_header(content=content)
         part_number = header.split(self.__metadata_split_token)[1].split("/")[0]
         return int(part_number)
 
     def _get_total_parts(self, content: str) -> int:
-        header = self._get_header(content=content)
+        header = self.get_header(content=content)
         total_parts = header.split(self.__metadata_split_token)[1].split("/")[1]
         return int(total_parts)
 
     def _get_uuid4(self, content: str) -> str:
-        header = self._get_header(content=content)
+        header = self.get_header(content=content)
         uuid4 = header.split(self.__metadata_split_token)[2]
         return uuid4
 
@@ -77,7 +77,7 @@ class MultipartHandler:
         sender = message.sender
         uuid4 = self._get_uuid4(message.body)
         if (
-            not sender in self.__multipart_message_storage.keys()
+            not sender in self.__multipart_message_storage
             or not uuid4 in self.__multipart_message_storage[sender].keys()
         ):
             return None
@@ -89,11 +89,11 @@ class MultipartHandler:
     def _rebuild_multipart_content(self, sender: JID, uuid4: str) -> str:
         content = ""
         for part in self.__multipart_message_storage[sender][uuid4]:
-            content += part
+            content += part if part is not None else ""
         return content
 
     def __remove_data(self, sender: JID, uuid4: str) -> None:
-        if sender in self.__multipart_message_storage.keys():
+        if sender in self.__multipart_message_storage:
             if uuid4 in self.__multipart_message_storage[sender].keys():
                 del self.__multipart_message_storage[sender][uuid4]
                 if len(self.__multipart_message_storage[sender].keys()) == 0:
@@ -118,7 +118,7 @@ class MultipartHandler:
             part_number = self._get_part_number(message.body)
             total_parts = self._get_total_parts(message.body)
             uuid4 = self._get_uuid4(message.body)
-            if not sender in self.__multipart_message_storage.keys():
+            if not sender in self.__multipart_message_storage:
                 self.__multipart_message_storage[sender] = {}
             if not uuid4 in self.__multipart_message_storage[sender].keys():
                 self.__multipart_message_storage[sender][uuid4] = [None] * total_parts
@@ -186,12 +186,12 @@ class MultipartHandler:
         Returns:
             list[Message] | None: A list of multipart messages to send or None if the content does not exceed the maximum size.
         """
-        multiparts = self._generate_multipart_content(
+        content_splits = self._generate_multipart_content(
             content=content, max_size=max_size
         )
-        if multiparts is not None:
-            multiparts_messages = []
-            for multipart in multiparts:
+        if content_splits is not None:
+            multiparts_messages: list[Message] = []
+            for multipart in content_splits:
                 message = copy.deepcopy(message_base)
                 message.body = multipart
                 multiparts_messages.append(message)

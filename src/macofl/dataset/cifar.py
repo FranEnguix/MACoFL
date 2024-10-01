@@ -1,7 +1,8 @@
-from torchvision import datasets
-from torch.utils.data import Subset
-
 from typing import Union
+
+import numpy as np
+from torch.utils.data import Subset
+from torchvision import datasets
 
 
 class CIFARN(datasets.CIFAR100):
@@ -25,6 +26,9 @@ class CIFARN(datasets.CIFAR100):
             download=download,
         )
 
+        self.targets: list[int]
+        self.class_to_idx: dict[str, int]
+
         selected_classes = {
             k: v for (k, v) in self.class_to_idx.items() if k in selected_classes_names
         }  # example: {'bicycle': 8, 'dolphin': 30, 'motorcycle': 48, 'ray': 67, 'shark': 73, 'tank': 85, 'tractor': 89, 'trout': 91}
@@ -39,7 +43,7 @@ class CIFARN(datasets.CIFAR100):
 
         # Filter and remap classes
         mask = [target in self.original_class_mapping for target in self.targets]
-        self.data = self.data[mask]
+        self.data: np.ndarray = self.data[mask]  # ndarray[N(num-samples), 32, 32, 3]
         self.targets = [
             self.original_class_mapping[target]
             for target in self.targets

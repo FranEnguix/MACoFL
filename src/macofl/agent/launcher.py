@@ -1,5 +1,4 @@
 from aioxmpp import JID
-from typing import Coroutine, Any
 
 from macofl.agent import AgentBase, AgentNodeBase
 from macofl.behaviour.launcher import LaunchAgentsBehaviour, Wait
@@ -30,13 +29,13 @@ class LauncherAgent(AgentBase):
             f"Agents to launch: {[j.bare() for j in self.agents_to_launch]}"
         )
 
-    async def setup(self) -> Coroutine[Any, Any, None]:
+    async def setup(self) -> None:
         self.setup_presence_handlers()
         self.presence.set_available()
         self.add_behaviour(LaunchAgentsBehaviour())
         self.add_behaviour(Wait())
 
-    async def launch_agents(self) -> Coroutine[Any, Any, None]:
+    async def launch_agents(self) -> None:
         self.logger.debug(
             f"Initializating launch of {[str(j.bare()) for j in self.agents_to_launch]}"
         )

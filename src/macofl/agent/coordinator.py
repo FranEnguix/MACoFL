@@ -1,5 +1,6 @@
+from typing import Optional
+
 from aioxmpp import JID
-from typing import Coroutine, Any
 from spade.template import Template
 
 from macofl.agent import AgentBase
@@ -21,7 +22,7 @@ class CoordinatorAgent(AgentBase):
         self.coordinated_agents = (
             [] if coordinated_agents is None else coordinated_agents
         )
-        self.coordination_fsm: PresenceCoordinatorFSM = None
+        self.coordination_fsm: Optional[PresenceCoordinatorFSM] = None
         super().__init__(
             jid,
             password,
@@ -31,7 +32,7 @@ class CoordinatorAgent(AgentBase):
             verify_security,
         )
 
-    async def setup(self) -> Coroutine[Any, Any, None]:
+    async def setup(self) -> None:
         await super().setup()
         template = Template()
         template.set_metadata("rf.presence", "sync")

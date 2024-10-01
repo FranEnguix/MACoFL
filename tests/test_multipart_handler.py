@@ -1,5 +1,6 @@
 import math
 import random
+
 from spade.message import Message
 
 from macofl.message import MultipartHandler
@@ -28,6 +29,7 @@ def test_divide_and_rebuild_message(
     msgs = mh_sender.generate_multipart_messages(
         content=original_content, max_size=max_size_with_header, message_base=msg
     )
+    msgs = [] if msgs is None else msgs
     random.shuffle(msgs)
 
     assert len(msgs) == math.ceil(
