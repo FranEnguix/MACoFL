@@ -1,17 +1,17 @@
 import asyncio
-import spade
 import logging
+import sys
 import traceback
 import uuid
-import sys
 
+import spade
 from aioxmpp import JID
 
-from macofl.log import setup_loggers
 from macofl.agent import CoordinatorAgent, LauncherAgent, ObserverAgent
+from macofl.log import setup_loggers
 
 
-async def main():
+async def main() -> None:
     uuid4_enabled = True
     xmpp_domain = "localhost"
     agent_name = "ag"

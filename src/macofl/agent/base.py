@@ -72,14 +72,14 @@ class AgentBase(Agent):
             )
         return msg
 
-    def on_available(self, jid: str, stanza):
+    def on_available(self, jid: str, stanza) -> None:
         self.logger.debug(f"{jid} is available with stanza {stanza}.")
 
-    def on_subscribed(self, jid):
+    def on_subscribed(self, jid) -> None:
         self.logger.debug(f"{jid} has accepted my subscription request.")
         self.logger.debug(f"My contact list is {self.presence.get_contacts()}.")
 
-    def on_subscribe(self, jid):
+    def on_subscribe(self, jid) -> None:
         self.presence.approve(jid)
         self.logger.debug(f"{jid} approved.")
 

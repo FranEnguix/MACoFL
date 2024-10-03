@@ -12,9 +12,9 @@ def test_divide_and_rebuild_message(
     mh_sender = MultipartHandler()
     mh_dest = MultipartHandler()
 
-    original_content = ""
-    for i in range(content_multiplier):
-        original_content += f"{i}#/|sdf|/#multipart|"
+    original_content = "".join(
+        [f"{i}#/|sdf|/#multipart|" for i in range(content_multiplier)]
+    )
 
     to = "dest"
     sender = "sender"

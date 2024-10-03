@@ -1,2 +1,4 @@
+from .consensus import Consensus
 from .loaders import DataLoaders
-from .models import Model
+from .metrics import ModelMetrics
+from .models import ModelManager

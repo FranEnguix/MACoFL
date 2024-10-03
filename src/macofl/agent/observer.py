@@ -20,9 +20,9 @@ class ObserverAgent(AgentBase):
     ):
         self.agents_observed: list[JID] = []
         self.observation_theme_behaviours: dict[str, Optional[ObserverBehaviour]] = {
-            "message": None,  # iteration id, log datetime, size, sender, dest
-            "nn": None,  # iteration id, log datetime, accuracy
-            "iteration": None,  # iteration id, start datetime, seconds to complete
+            "message": None,
+            "nn": None,
+            "iteration": None,
         }
         super().__init__(
             jid,
