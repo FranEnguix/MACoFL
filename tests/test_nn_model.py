@@ -15,14 +15,14 @@ def build_neural_network() -> ModelManager:
         criterion=nn.CrossEntropyLoss(),
         optimizer=Adam(model.parameters(), lr=0.001, weight_decay=1e-5),
         batch_size=64,
-        training_epochs=10,
+        training_epochs=1,
         dataloaders=dataloaders,
     )
 
 
 def test_neural_network():
     model = build_neural_network()
-    training_metrics = model.train(epochs=10)
+    training_metrics = model.train()
     validation_metrics = model.inference()
     test_metrics = model.test_inference()
     print(f"Training metrics: {training_metrics.accuracy} - {training_metrics.loss}")

@@ -1,4 +1,4 @@
-from . import federated_learning
+from . import premiofl
 from .base import AgentBase, AgentNodeBase
 from .coordinator import CoordinatorAgent
 from .launcher import LauncherAgent
@@ -10,5 +10,5 @@ __all__ = [
     "CoordinatorAgent",
     "LauncherAgent",
     "ObserverAgent",
-    "federated_learning",
+    "premiofl",
 ]

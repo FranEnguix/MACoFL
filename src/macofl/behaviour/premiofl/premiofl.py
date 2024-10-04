@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING
 
 from spade.behaviour import CyclicBehaviour
 
-from ..message.message import MessageFl
+from ...message.message import MessageFl
 
 if TYPE_CHECKING:
-    from ..agent.federated_learning.premiofl import PremioFlAgent
+    from ...agent.premiofl.premiofl import PremioFlAgent
 
 
 class ReceiveWeights(CyclicBehaviour):
@@ -15,11 +15,7 @@ class ReceiveWeights(CyclicBehaviour):
         super().__init__()
         self.agent: PremioFlAgent
 
-    async def on_end(self) -> None:
-        return await super().on_end()
-
     async def run(self) -> None:
-        super().run()
         msg = await self.agent.receive(self, timeout=4)
         if msg:
             # TODO: log message received
@@ -35,7 +31,7 @@ class ReceiveWeights(CyclicBehaviour):
             if seconds_since_message_sent.total_seconds() <= max_seconds_pre_consensus:
                 # TODO: log pre consensus accepted
 
-                self.agent.store_consensus_weights(message.weights)
+                self.agent.put_model_to_consensus_queue(message.weights)
                 if not self.agent.is_training():
                     self.agent.apply_consensus()
 

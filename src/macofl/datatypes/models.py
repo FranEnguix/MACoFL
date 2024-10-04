@@ -40,6 +40,11 @@ class ModelManager:
         self.initial_state: OrderedDict[str, Tensor] = copy.deepcopy(model.state_dict())
         self.pretrain_state: Optional[OrderedDict[str, Tensor]] = None
 
+    def replace_weights_and_biases(
+        self, new_weights_and_biases: OrderedDict[str, Tensor]
+    ) -> None:
+        self.model.load_state_dict(state_dict=new_weights_and_biases)
+
     def train(self, epochs: Optional[int] = None) -> ModelMetrics:
         """
         Updates the model by training on the training dataset.
