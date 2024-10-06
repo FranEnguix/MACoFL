@@ -1,4 +1,6 @@
+import codecs
 import copy
+import pickle
 from typing import Optional, OrderedDict
 
 import torch
@@ -38,7 +40,13 @@ class ModelManager:
             else torch.device(device)
         )
         self.initial_state: OrderedDict[str, Tensor] = copy.deepcopy(model.state_dict())
-        self.pretrain_state: Optional[OrderedDict[str, Tensor]] = None
+        self.pretrain_state: OrderedDict[str, Tensor] = copy.deepcopy(
+            self.model.state_dict()
+        )
+        self.__training: bool = False
+
+    def is_training(self) -> bool:
+        return self.__training
 
     def replace_weights_and_biases(
         self, new_weights_and_biases: OrderedDict[str, Tensor]
@@ -49,8 +57,11 @@ class ModelManager:
         """
         Updates the model by training on the training dataset.
         """
+        self.__training = True
         if epochs is None:
             epochs = self.training_epochs
+
+        self.pretrain_state = copy.deepcopy(self.model.state_dict())
 
         # Training loop
         for _ in range(epochs):
@@ -77,6 +88,7 @@ class ModelManager:
                 total_samples += labels.size(0)
                 correct += int((predicted == labels).sum().item())
 
+        self.__training = False
         accuracy: float = correct / total_samples
         resulting_loss: float = total_loss / len(self.dataloaders.train_data)
         metrics: ModelMetrics = ModelMetrics(accuracy=accuracy, loss=resulting_loss)
@@ -130,6 +142,22 @@ class ModelManager:
         Returns the TEST inference metrics.
         """
         return self._inference(dataloader=self.dataloaders.test_data)
+
+    @staticmethod
+    def export_weights_and_biases(model: OrderedDict[str, Tensor]) -> str:
+        return codecs.encode(pickle.dumps(model), encoding="base64").decode(
+            encoding="utf-8"
+        )
+
+    @staticmethod
+    def import_weights_and_biases(
+        base64_codified_model: str,
+    ) -> OrderedDict[str, Tensor]:
+        return pickle.loads(
+            codecs.decode(
+                base64_codified_model.encode(encoding="utf-8"), encoding="base64"
+            )
+        )
 
     def save_model_to_file(self, filepath: str) -> None:
         """

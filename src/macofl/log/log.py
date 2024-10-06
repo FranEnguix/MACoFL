@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -49,7 +49,9 @@ def setup_loggers(
         Path(log_folder_path) if isinstance(log_folder_path, str) else log_folder_path
     )
     if datetime_mark:
-        log_folder = log_folder / datetime.now().strftime("%Y_%m_%d_%H_%M_%S_%f")
+        log_folder = log_folder / datetime.now(tz=timezone.utc).strftime(
+            "%Y_%m_%d_T_%H_%M_%S_%f_Z"
+        )
     log_folder.mkdir(parents=True, exist_ok=True)
 
     # Set up the base format and log levels for the different loggers

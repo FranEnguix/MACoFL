@@ -11,8 +11,8 @@ class MultipartHandler:
     content length is 256 * 1024, so this class is able to split a content that exceeds a desired size into messages
     of the same desired maximum length. This class adds a header into the messages content to be able to
     rebuild the messages in the correct order. The header is "multipart#[index]/[total]#[uuid4]|" where "index"
-    is the id of the current message, starting by 1, and "total" is the number of messages needed to rebuild the
-    original content.
+    is the id of the current message (starting by 1), "total" is the number of messages needed to rebuild the
+    original content and "uuid4" is the unique universal identifier of the original splitted message.
     """
 
     def __init__(self) -> None:

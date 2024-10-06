@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from torch.optim import Adam
 
@@ -30,3 +31,17 @@ def test_neural_network():
         f"Validation metrics: {validation_metrics.accuracy} - {validation_metrics.loss}"
     )
     print(f"Test metrics: {test_metrics.accuracy} - {test_metrics.loss}")
+
+
+def test_model_to_base64():
+    model = build_neural_network()
+    model_str = ModelManager.export_weights_and_biases(model.model.state_dict())
+    model_reconstruct = ModelManager.import_weights_and_biases(model_str)
+    for key in model.initial_state:
+        assert key in model_reconstruct, f"Key '{key}' not in reconstruct."
+        assert torch.allclose(
+            model.model.state_dict()[key], model_reconstruct[key]
+        ), f"Reconstructed '{key}' tensor does not match the model"
+        assert torch.allclose(
+            model.initial_state[key], model_reconstruct[key]
+        ), f"Reconstructed '{key}' tensor does not match the initial model"
