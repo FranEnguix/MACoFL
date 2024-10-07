@@ -19,7 +19,11 @@ class CyclicConsensusReceiverBehaviour(CyclicBehaviour):
     async def run(self) -> None:
         timeout = 5  # TODO parametrizar
         msg = await self.agent.receive(self, timeout=timeout)
-        if msg and RfMessage.is_completed(message=msg):
+        if (
+            msg
+            and RfMessage.is_completed(message=msg)
+            and not self.agent.are_max_iterations_reached()
+        ):
             consensus_tr = ConsensusTransmission.from_message(message=msg)
             consensus_tr.received_time_z = datetime.now(tz=timezone.utc)  # zulu = utc+0
 

@@ -130,3 +130,13 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         if metadata is not None:
             msg.metadata = metadata
         await self.send(message=msg, behaviour=behaviour)
+
+    def are_max_iterations_reached(self) -> bool:
+        return (
+            self.max_algorithm_iterations is not None
+            and self.algorithm_iterations > self.max_algorithm_iterations
+        )
+
+    async def stop(self) -> None:
+        await super().stop()
+        self.logger.info(f"[{self.algorithm_iterations}] Agent stopped.")
