@@ -8,13 +8,14 @@ import spade
 from aioxmpp import JID
 
 from macofl.agent import CoordinatorAgent, LauncherAgent, ObserverAgent
+from macofl.agent.premiofl import AcolAgent
 from macofl.log import setup_loggers
 
 
 async def main() -> None:
     uuid4_enabled = True
     xmpp_domain = "localhost"
-    agent_name = "ag"
+    agent_name = "a"
     max_message_size = 250_000  # do not be close to 262 144
     number_of_agents = 10
     number_of_observers = 1
@@ -30,11 +31,11 @@ async def main() -> None:
 
     initial_agents: list[JID] = []
     for i in range(number_of_agents):
-        initial_agents.append(JID.fromstr(f"{agent_name}_{i}_{uuid4}@{xmpp_domain}"))
+        initial_agents.append(JID.fromstr(f"{agent_name}{i}_{uuid4}@{xmpp_domain}"))
 
     observer_jids: list[JID] = []
     for i in range(number_of_observers):
-        observer_jids.append(JID.fromstr(f"obs_{i}_{uuid4}@{xmpp_domain}"))
+        observer_jids.append(JID.fromstr(f"obs{i}_{uuid4}@{xmpp_domain}"))
     observers: list[ObserverAgent] = []
 
     logger.info("Initializating coordinator...")
@@ -97,7 +98,7 @@ async def main() -> None:
         logger.info("Agents finished.")
 
     except Exception as e:
-        logger.error(e)
+        logger.exception(e)
         traceback.print_exc()
 
     finally:
@@ -113,5 +114,8 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    setup_loggers(general_level=logging.INFO)
-    spade.run(main())
+    try:
+        setup_loggers(general_level=logging.INFO)
+        spade.run(main())
+    except Exception:
+        traceback.print_exc()

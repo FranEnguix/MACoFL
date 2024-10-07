@@ -1,7 +1,12 @@
 from aioxmpp import JID
 
-from macofl.agent import AgentBase, AgentNodeBase
+from macofl.agent import AgentBase
+from macofl.agent.premiofl import AcolAgent
 from macofl.behaviour.launcher import LaunchAgentsBehaviour, Wait
+
+from ..datatypes.consensus import Consensus
+from ..nn.model_factory import ModelManagerFactory
+from .base import AgentNodeBase
 
 
 class LauncherAgent(AgentBase):
@@ -18,7 +23,7 @@ class LauncherAgent(AgentBase):
         web_port: int = 10000,
         verify_security: bool = False,
     ):
-        self.agents: list[AgentNodeBase] = []
+        self.agents: list[AcolAgent] = []
         self.agents_coordinator = agents_coordinator
         self.agents_observers = [] if agents_observers is None else agents_observers
         self.agents_to_launch = [] if agents_to_launch is None else agents_to_launch
@@ -41,14 +46,29 @@ class LauncherAgent(AgentBase):
         )
         for agent_jid in self.agents_to_launch:
             neighbour_jids = [j for j in self.agents_to_launch if j != agent_jid]
-            agent = AgentNodeBase(
+            # agent = AgentNodeBase(
+            #     jid=str(agent_jid.bare()),
+            #     password="123",
+            #     max_message_size=self.max_message_size,
+            #     observers=self.agents_observers,
+            #     neighbours=neighbour_jids,
+            #     coordinator=self.agents_coordinator,
+            #     verify_security=self.verify_security,
+            # )
+            consensus = Consensus(
+                max_order=len(neighbour_jids), max_seconds_to_accept_pre_consensus=600
+            )
+            model_manager = ModelManagerFactory.get_cifar8()
+            agent = AcolAgent(
                 jid=str(agent_jid.bare()),
                 password="123",
                 max_message_size=self.max_message_size,
+                consensus=consensus,
+                model_manager=model_manager,
                 observers=self.agents_observers,
                 neighbours=neighbour_jids,
                 coordinator=self.agents_coordinator,
-                verify_security=self.verify_security,
+                max_algorithm_iterations=20,
             )
             self.logger.debug(
                 f"The neighbour JIDs for agent {agent_jid.bare()} are {[str(j.bare()) for j in neighbour_jids]}"

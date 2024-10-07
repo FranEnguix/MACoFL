@@ -1,6 +1,7 @@
 import codecs
 import copy
 import pickle
+from datetime import datetime, timezone
 from typing import Optional, OrderedDict
 
 import torch
@@ -62,6 +63,7 @@ class ModelManager:
             epochs = self.training_epochs
 
         self.pretrain_state = copy.deepcopy(self.model.state_dict())
+        init_time_z = datetime.now(tz=timezone.utc)
 
         # Training loop
         for _ in range(epochs):
@@ -89,9 +91,15 @@ class ModelManager:
                 correct += int((predicted == labels).sum().item())
 
         self.__training = False
+        end_time_z: datetime = datetime.now(tz=timezone.utc)
         accuracy: float = correct / total_samples
         resulting_loss: float = total_loss / len(self.dataloaders.train_data)
-        metrics: ModelMetrics = ModelMetrics(accuracy=accuracy, loss=resulting_loss)
+        metrics: ModelMetrics = ModelMetrics(
+            accuracy=accuracy,
+            loss=resulting_loss,
+            start_time_z=init_time_z,
+            end_time_z=end_time_z,
+        )
         return metrics
 
     def _inference(self, dataloader: DataLoader) -> ModelMetrics:
@@ -113,6 +121,7 @@ class ModelManager:
         loss: Tensor
         predicted: Tensor
 
+        init_time_z = datetime.now(tz=timezone.utc)
         with torch.no_grad():
             for images, labels in dataloader:
                 images, labels = images.to(self.device), labels.to(self.device)
@@ -126,9 +135,15 @@ class ModelManager:
                 predicted_labels.extend(predicted.cpu().numpy())
                 true_labels.extend(labels.cpu().numpy())
 
+        end_time_z: datetime = datetime.now(tz=timezone.utc)
         accuracy: float = correct / total
         resulting_loss: float = total_loss / len(dataloader)
-        metrics: ModelMetrics = ModelMetrics(accuracy=accuracy, loss=resulting_loss)
+        metrics: ModelMetrics = ModelMetrics(
+            accuracy=accuracy,
+            loss=resulting_loss,
+            start_time_z=init_time_z,
+            end_time_z=end_time_z,
+        )
         return metrics
 
     def inference(self) -> ModelMetrics:

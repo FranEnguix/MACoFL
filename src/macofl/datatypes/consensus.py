@@ -9,15 +9,11 @@ class Consensus:
 
     def __init__(
         self,
-        epsilon: int,
         max_order: int,
         max_seconds_to_accept_pre_consensus: float,
     ) -> None:
         self.models_to_consensuate: Queue[OrderedDict[str, Tensor]] = Queue()
-        self.epsilon = epsilon
         self.max_order = max_order
-        if epsilon <= 0 or epsilon >= 1:
-            raise RuntimeError("Consensus epsilon must be in (0, 1) range.")
         self.max_seconds_to_accept_pre_consensus = max_seconds_to_accept_pre_consensus
 
     def apply_all_consensus(
@@ -27,7 +23,7 @@ class Consensus:
         while self.models_to_consensuate.qsize() > 0:
             weights_and_biases = self.models_to_consensuate.get()
             consensuated_model = Consensus.apply_consensus(
-                consensuated_model, weights_and_biases, epsilon=self.epsilon
+                consensuated_model, weights_and_biases, max_order=self.max_order
             )
             self.models_to_consensuate.task_done()
         return consensuated_model
@@ -36,7 +32,7 @@ class Consensus:
     def apply_consensus(
         weights_and_biases_a: OrderedDict[str, Tensor],
         weights_and_biases_b: OrderedDict[str, Tensor],
-        epsilon: float = 0.5,
+        max_order: int = 2,
     ) -> OrderedDict[str, Tensor]:
         consensuated_result: OrderedDict[str, Tensor] = OrderedDict()
         for key in weights_and_biases_a.keys():
@@ -44,7 +40,7 @@ class Consensus:
                 consensuated_result[key] = Consensus.consensus_update_to_tensors(
                     tensor_a=weights_and_biases_a[key],
                     tensor_b=weights_and_biases_b[key],
-                    epsilon=epsilon,
+                    max_order=max_order,
                 )
             else:
                 raise ValueError(
@@ -54,6 +50,11 @@ class Consensus:
 
     @staticmethod
     def consensus_update_to_tensors(
-        tensor_a: Tensor, tensor_b: Tensor, epsilon: float = 0.5
+        tensor_a: Tensor, tensor_b: Tensor, max_order: int
     ) -> Tensor:
+        if max_order < 2:
+            raise ValueError(
+                f"Max order of consensus must be greater than 1 and get {max_order}."
+            )
+        epsilon = 1 / max_order
         return epsilon * tensor_a + (1 - epsilon) * tensor_b

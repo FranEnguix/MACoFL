@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from spade.behaviour import CyclicBehaviour
 
 from ...datatypes.consensus_transmission import ConsensusTransmission
+from ...message.message import RfMessage
 
 if TYPE_CHECKING:
     from ...agent.premiofl.premiofl import PremioFlAgent
@@ -12,33 +13,36 @@ if TYPE_CHECKING:
 class CyclicConsensusReceiverBehaviour(CyclicBehaviour):
 
     def __init__(self) -> None:
-        super().__init__()
         self.agent: PremioFlAgent
+        super().__init__()
 
     async def run(self) -> None:
-        msg = await self.agent.receive(self, timeout=4)
-        if msg:
-            # TODO: log message received
-            consensus_t = ConsensusTransmission.from_message(message=msg)
-            consensus_t.received_time_z = datetime.now(tz=timezone.utc)  # zulu = utc+0
+        timeout = 5  # TODO parametrizar
+        msg = await self.agent.receive(self, timeout=timeout)
+        if msg and RfMessage.is_completed(message=msg):
+            consensus_tr = ConsensusTransmission.from_message(message=msg)
+            consensus_tr.received_time_z = datetime.now(tz=timezone.utc)  # zulu = utc+0
 
-            if not consensus_t.sent_time_z:
-                raise ValueError(
-                    f"Consensus message from {msg.sender.bare()} without timestamp."
-                )
+            if not consensus_tr.sent_time_z:
+                error_msg = f"[{self.agent.algorithm_iterations}] Consensus message from {msg.sender.bare()} without timestamp."
+                self.agent.logger.error(error_msg)
+                raise ValueError(error_msg)
 
             seconds_since_message_sent = (
-                consensus_t.received_time_z - consensus_t.sent_time_z
+                consensus_tr.received_time_z - consensus_tr.sent_time_z
             )
             max_seconds_pre_consensus = (
                 self.agent.consensus.max_seconds_to_accept_pre_consensus
             )
 
             if seconds_since_message_sent.total_seconds() <= max_seconds_pre_consensus:
-                # TODO: log pre consensus accepted
-
+                self.agent.logger.info(
+                    f"[{self.agent.algorithm_iterations}] Consensus message accepted in ReceiverBehaviour with time elapsed {seconds_since_message_sent.total_seconds():.2f}"
+                )
                 self.agent.put_to_consensus_transmission_queue(
-                    consensus_transmission=consensus_t
+                    consensus_transmission=consensus_tr
                 )
             else:
-                pass  # TODO: log mensaje descartado por exceso de tiempo
+                self.agent.logger.info(
+                    f"[{self.agent.algorithm_iterations}] Consensus message discarted in ReceiverBehaviour because time elapsed is {seconds_since_message_sent.total_seconds():.2f} and maximum is {max_seconds_pre_consensus:.2f}"
+                )

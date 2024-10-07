@@ -2,14 +2,15 @@ import logging
 import traceback
 from typing import Optional
 
-from aioxmpp import JID
+from aioxmpp import JID, Presence, PresenceType
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour
 from spade.message import Message
 from spade.template import Template
 
 from ..behaviour.coordination import PresenceNodeFSM
-from ..message import MultipartHandler
+from ..message.message import RfMessage
+from ..message.multipart import MultipartHandler
 
 
 class AgentBase(Agent):
@@ -58,19 +59,52 @@ class AgentBase(Agent):
 
     async def receive(
         self, behaviour: CyclicBehaviour, timeout: Optional[float] = 0
-    ) -> Message | None:
-        msg: Message = await behaviour.receive(timeout=timeout)
+    ) -> RfMessage | None:
+        """
+        Put a behaviour start listening to messages using the MultipartHandler class.
+        If a message arrives, this function returns the message, otherwise returns None.
+        If the message is a multipart message and it is completed, returns the completed
+        message with the flags `is_multipart` and `is_multipart_completed` set to True.
+
+        Args:
+            behaviour (CyclicBehaviour): The receiver behaviour.
+            timeout (Optional[float], optional): Timeout in seconds. Defaults to 0.
+
+        Returns:
+            RfMessage | None: The message received -and rebuilded if necessary- or None
+            if any message arrived.
+        """
+        msg: Message | None = await behaviour.receive(timeout=timeout)
         if msg is not None:
-            if self._multipart_handler.is_multipart(msg):
+            is_multipart = self._multipart_handler.is_multipart(msg)
+            if is_multipart:
                 header = self._multipart_handler.get_header(msg.body)
                 self.logger.debug(
                     f"Multipart message arrived from {msg.sender}: {header} with length {len(msg.body)}"
                 )
-                return self._multipart_handler.rebuild_multipart(message=msg)
+                multipart_msg = self._multipart_handler.rebuild_multipart(message=msg)
+                is_multipart_completed = multipart_msg is not None
+                if is_multipart_completed:
+                    return RfMessage.from_message(
+                        message=multipart_msg,
+                        is_multipart=is_multipart,
+                        is_multipart_completed=is_multipart_completed,
+                    )
+                return RfMessage.from_message(
+                    message=msg,
+                    is_multipart=is_multipart,
+                    is_multipart_completed=is_multipart_completed,
+                )
             self.logger.debug(
                 f"Message arrived from {msg.sender}: with length {len(msg.body)}"
             )
-        return msg
+            return RfMessage.from_message(
+                message=msg, is_multipart=False, is_multipart_completed=False
+            )
+        return None
+
+    def any_multipart_waiting(self) -> bool:
+        return self._multipart_handler.any_multipart_waiting()
 
     def on_available(self, jid: str, stanza) -> None:
         self.logger.debug(f"{jid} is available with stanza {stanza}.")
@@ -98,7 +132,9 @@ class AgentNodeBase(AgentBase):
         observers: Optional[list[JID]] = None,
         neighbours: Optional[list[JID]] = None,
         coordinator: Optional[JID] = None,
-        post_coordination_behaviours: Optional[list[CyclicBehaviour]] = None,
+        post_coordination_behaviours: Optional[
+            list[tuple[CyclicBehaviour, Template]]
+        ] = None,
         web_address: str = "0.0.0.0",
         web_port: int = 10000,
         verify_security: bool = False,
@@ -126,6 +162,11 @@ class AgentNodeBase(AgentBase):
             template = Template()
             template.set_metadata("rf.presence", "sync")
             self.add_behaviour(self.coordination_fsm, template)
+            self.logger.info("PresenceNodeFSM attached.")
+        else:
+            self.logger.info("Starting without PresenceNodeFSM.")
+            for behaviour, template in self.post_coordination_behaviours:
+                self.add_behaviour(behaviour, template)
 
     def subscribe_to_neighbours(self) -> None:
         try:
@@ -152,3 +193,7 @@ class AgentNodeBase(AgentBase):
         if not all(ag.bare() in contacts for ag in self.neighbours):
             return False
         return all(data["subscription"] == "both" for data in contacts.values())
+
+    def get_available_neighbours(self) -> list[JID]:
+        # TODO: check if neighbour is available with self.presence.get_contacts()
+        return self.neighbours

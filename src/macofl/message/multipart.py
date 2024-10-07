@@ -12,7 +12,7 @@ class MultipartHandler:
     of the same desired maximum length. This class adds a header into the messages content to be able to
     rebuild the messages in the correct order. The header is "multipart#[index]/[total]#[uuid4]|" where "index"
     is the id of the current message (starting by 1), "total" is the number of messages needed to rebuild the
-    original content and "uuid4" is the unique universal identifier of the original splitted message.
+    original content and "uuid4" is the unique universal identifier (v4) of the original splitted message.
     """
 
     def __init__(self) -> None:
@@ -21,7 +21,7 @@ class MultipartHandler:
         self.__metadata_start: str = "multipart"
         self.__metadata_split_token: str = "#"
         self.__metadata_uuid: str = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
-        self.__metadata_num_messages: int = 999999
+        self.__metadata_num_messages: int = 9_999_999
         self.__metadata_end_token: str = "|"
         metadata_header = (
             self.__metadata_start
@@ -63,7 +63,7 @@ class MultipartHandler:
     def any_multipart_waiting(self) -> bool:
         return len(self.__multipart_message_storage.keys()) > 0
 
-    def _is_multipart_complete(self, message: Message) -> bool | None:
+    def is_multipart_complete(self, message: Message) -> bool | None:
         """
         Returns a bool to denote whether the message is complete and ready to be rebuilded.
         Returns None if the sender has not multipart messages stored.
@@ -109,7 +109,7 @@ class MultipartHandler:
 
         Returns:
             Message | None: The rebuilded message with all the multiparts content in its body property.
-            Returns None if the message is not complete or it is not a multipart message.
+            Returns None if the message is not completed or it is not a multipart message.
         """
         # NOTE multipart header: multipart#1/2#xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx|
         if self.is_multipart(message):
@@ -125,7 +125,7 @@ class MultipartHandler:
             self.__multipart_message_storage[sender][uuid4][part_number - 1] = (
                 message.body[len(multipart_meta + self.__metadata_end_token) :]
             )
-            if self._is_multipart_complete(message):
+            if self.is_multipart_complete(message):
                 message.body = self._rebuild_multipart_content(
                     sender=sender, uuid4=uuid4
                 )

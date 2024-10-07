@@ -50,6 +50,7 @@ class AvailableNodeState(State):
 class SubscriptionNodeState(State):
 
     def __init__(self, coordinator: JID):
+        self.agent: AgentNodeBase
         self.coordinator = coordinator
         self.loops: int = 0
         self.ready_to_start = False
@@ -97,9 +98,11 @@ class SubscriptionNodeState(State):
             if msg and msg.body == "start the algorithm":
                 jid = msg.sender.bare()
                 agent.logger.debug(f"'{msg.body}' message received from {jid}.")
-                for behaviour in agent.post_coordination_behaviours:
-                    agent.add_behaviour(behaviour)
-                    agent.logger.debug(f"Behaviour {type(behaviour)} added.")
+                for behaviour, template in agent.post_coordination_behaviours:
+                    agent.add_behaviour(behaviour, template)
+                    agent.logger.debug(
+                        f"Behaviour {type(behaviour)} added with template {template}."
+                    )
                 agent.logger.info("Coordination phase ended successfully.")
                 self.kill()
             else:
@@ -115,6 +118,7 @@ class SubscriptionNodeState(State):
 class PresenceNodeFSM(FSMBehaviour):
 
     def __init__(self, coordinator: JID):
+        self.agent: AgentNodeBase
         self.coordinator = coordinator
         super().__init__()
 
@@ -130,8 +134,7 @@ class PresenceNodeFSM(FSMBehaviour):
         self.add_transition(source="subscription", dest="subscription")
 
     async def on_end(self) -> None:
-        agent: AgentNodeBase = self.agent
-        agent.logger.debug("PresenceSetupFSM behaviour finished.")
+        self.agent.logger.debug("PresenceSetupFSM behaviour finished.")
 
 
 # --------------------------------------------- #
@@ -169,7 +172,7 @@ class AvailableCoordinatorState(State):
             for jid in self.ready_agents.keys():
                 msg = Message(to=jid, sender=str(agent.jid.bare()))
                 msg.body = body
-                msg.set_metadata("presence", "sync")
+                msg.set_metadata("rf.presence", "sync")
                 await self.send(msg)
 
             agent.logger.info(f"All '{body}' messages sent.")
@@ -213,7 +216,7 @@ class SubscriptionCoordinatorState(State):
             for jid in self.ready_agents.keys():
                 msg = Message(to=jid, sender=str(agent.jid.bare()))
                 msg.body = body
-                msg.set_metadata("presence", "sync")
+                msg.set_metadata("rf.presence", "sync")
                 await self.send(msg)
             agent.logger.info(f"All {body} messages sent.")
             self.set_next_state("wait")

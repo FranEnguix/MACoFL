@@ -15,7 +15,7 @@ def test_consensus_update_tensors():
 
     # Apply the consensus update
     consensuated_tensor = Consensus.consensus_update_to_tensors(
-        tensor_zeros, tensor_tens, epsilon=0.5
+        tensor_zeros, tensor_tens, max_order=2
     )
 
     # Check that the output is a tensor of fives
@@ -25,9 +25,7 @@ def test_consensus_update_tensors():
 
 
 def test_consensus_update_models():
-    consensus = Consensus(
-        epsilon=0.5, max_order=2, max_seconds_to_accept_pre_consensus=10
-    )
+    consensus = Consensus(max_order=2, max_seconds_to_accept_pre_consensus=10)
     # Define the state dictionaries of two models with tensors of zeros and tens
     model_state_a = {"weight": torch.zeros((3, 3)), "bias": torch.zeros((3,))}
     model_state_b = {"weight": torch.full((3, 3), 10.0), "bias": torch.full((3,), 10.0)}
@@ -42,7 +40,7 @@ def test_consensus_update_models():
 
     # Apply the consensus algorithm
     consensuated_state_dict = consensus.apply_consensus(
-        model_state_a, model_state_b, epsilon=0.5
+        model_state_a, model_state_b, max_order=2
     )
 
     # Check that both 'weight' and 'bias' are correct
@@ -60,9 +58,7 @@ def test_consensus_update_models():
 
 
 def test_apply_consensus_algorithm():
-    consensus = Consensus(
-        epsilon=0.5, max_order=2, max_seconds_to_accept_pre_consensus=10
-    )
+    consensus = Consensus(max_order=2, max_seconds_to_accept_pre_consensus=10)
 
     # Define the models
     agent_model = {"weight": torch.zeros((3, 3)), "bias": torch.zeros((3,))}
