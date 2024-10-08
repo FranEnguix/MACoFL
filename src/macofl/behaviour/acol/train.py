@@ -29,9 +29,19 @@ class TrainAndApplyConsensusState(State):
         try:
             if not self.agent.are_max_iterations_reached():
                 # Train the model
-                metrics = self.agent.model_manager.train()
+                metrics_train = self.agent.model_manager.train()
+                metrics_test = self.agent.model_manager.test_inference()
                 self.agent.logger.info(
-                    f"[{self.agent.algorithm_iterations}] Train completed in {metrics.time_elapsed().total_seconds():.2f} seconds with accuracy {metrics.accuracy} and loss {metrics.loss}."
+                    f"[{self.agent.algorithm_iterations}] Train completed in {metrics_train.time_elapsed().total_seconds():.2f} seconds with accuracy {metrics_train.accuracy} and loss {metrics_train.loss}."
+                )
+                self.agent.nn_logger.log(
+                    iteration_id=self.agent.algorithm_iterations,
+                    agent=self.agent.jid,
+                    seconds=metrics_train.time_elapsed().seconds,
+                    training_accuracy=metrics_train.accuracy,
+                    training_loss=metrics_train.loss,
+                    test_accuracy=metrics_test.accuracy,
+                    test_loss=metrics_test.loss,
                 )
 
                 # Apply consensus

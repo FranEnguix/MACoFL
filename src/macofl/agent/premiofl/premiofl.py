@@ -1,4 +1,3 @@
-import traceback
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, timezone
 from queue import Queue
@@ -12,6 +11,9 @@ from torch import Tensor
 from ...datatypes.consensus import Consensus
 from ...datatypes.consensus_transmission import ConsensusTransmission
 from ...datatypes.models import ModelManager
+from ...log.algorithm import AlgorithmLogManager
+from ...log.message import MessageLogManager
+from ...log.nn import NnLogManager
 from ..base import AgentNodeBase
 
 
@@ -33,11 +35,15 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         web_port: int = 10000,
         verify_security: bool = False,
     ):
+        extra_name = f"agent.{JID.fromstr(jid).localpart}"
         self.consensus = consensus
         self.model_manager = model_manager
         self.max_algorithm_iterations = max_algorithm_iterations  # None = inf
         self.algorithm_iterations: int = 0
         self.consensus_transmissions: Queue[ConsensusTransmission] = Queue()
+        self.message_logger = MessageLogManager(extra_logger_name=extra_name)
+        self.algorithm_logger = AlgorithmLogManager(extra_logger_name=extra_name)
+        self.nn_logger = NnLogManager(extra_logger_name=extra_name)
         super().__init__(
             jid,
             password,
@@ -126,10 +132,18 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
             sender=self.jid,
         )
         msg = ct.to_message()
+        msg.sender = str(self.jid.bare())
         msg.to = str(neighbour.bare())
         if metadata is not None:
             msg.metadata = metadata
         await self.send(message=msg, behaviour=behaviour)
+        self.message_logger.log(
+            iteration_id=self.algorithm_iterations,
+            sender=msg.sender,
+            to=msg.to,
+            msg_type="SEND",
+            size=len(msg.body),
+        )
 
     def are_max_iterations_reached(self) -> bool:
         return (

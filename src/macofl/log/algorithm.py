@@ -8,11 +8,11 @@ from spade.template import Template
 from .csv import CsvLogManager
 
 
-class MessageLogManager(CsvLogManager):
+class AlgorithmLogManager(CsvLogManager):
 
     def __init__(
         self,
-        base_logger_name="rf.message",
+        base_logger_name="rf.algorithm",
         extra_logger_name=None,
         level=logging.DEBUG,
         datetime_format="%Y-%m-%dT%H:%M:%S.%fZ",
@@ -32,35 +32,30 @@ class MessageLogManager(CsvLogManager):
 
     @staticmethod
     def get_header() -> str:
-        return "log_timestamp,log_name,iteration_id,timestamp,sender,to,type,size"
+        return "log_timestamp,log_name,iteration_number,timestamp,agent,seconds_to_complete"
 
     @staticmethod
     def get_template() -> Template:
-        return Template(metadata={"rf.observer.log": "message"})
+        return Template(metadata={"rf.observer.log": "algorithm"})
 
     def log(
         self,
         iteration_id: int,
-        sender: str | JID,
-        to: str | JID,
-        msg_type: str,
-        size: int,
+        agent: JID,
+        seconds: float,
         timestamp: Optional[datetime] = None,
         level: Optional[int] = None,
     ) -> None:
         lvl = self.level if level is None else level
         dt = datetime.now(tz=timezone.utc) if timestamp is None else timestamp
         dt_str = dt.strftime(self.datetime_format)
-        sender = str(sender.bare()) if isinstance(sender, JID) else sender
-        to = str(to.bare()) if isinstance(to, JID) else to
+        agent = str(agent.bare()) if isinstance(agent, JID) else agent
         msg = ",".join(
             [
                 str(iteration_id),
                 dt_str,
-                sender,
-                to,
-                msg_type,
-                str(size),
+                agent,
+                str(seconds),
             ]
         )
         self.logger.log(level=lvl, msg=msg)

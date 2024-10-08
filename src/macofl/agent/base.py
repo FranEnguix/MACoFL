@@ -1,14 +1,15 @@
-import logging
 import traceback
 from typing import Optional
 
-from aioxmpp import JID, Presence, PresenceType
+from aioxmpp import JID
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour
 from spade.message import Message
 from spade.template import Template
 
 from ..behaviour.coordination import PresenceNodeFSM
+from ..log.general import GeneralLogManager
+from ..log.message import MessageLogManager
 from ..message.message import RfMessage
 from ..message.multipart import MultipartHandler
 
@@ -23,10 +24,9 @@ class AgentBase(Agent):
         web_port: int = 10000,
         verify_security: bool = False,
     ):
-        name = JID.fromstr(jid).localpart
-        self.logger = logging.getLogger(f"rf.log.agent.{name}")
-        self.message_logger = logging.getLogger(f"rf.message.agent.{name}")
-        self.accuracy_logger = logging.getLogger(f"rf.accuracy.agent.{name}")
+        extra_log_name = f"agent.{JID.fromstr(jid).localpart}"
+        self.logger = GeneralLogManager(extra_logger_name=extra_log_name)
+        self.message_logger = MessageLogManager(extra_logger_name=extra_log_name)
         self.max_message_size = max_message_size
         self.web_address = web_address
         self.web_port = web_port
@@ -72,7 +72,7 @@ class AgentBase(Agent):
 
         Returns:
             RfMessage | None: The message received -and rebuilded if necessary- or None
-            if any message arrived.
+            if not messages received after timeout ends.
         """
         msg: Message | None = await behaviour.receive(timeout=timeout)
         if msg is not None:
@@ -80,7 +80,7 @@ class AgentBase(Agent):
             if is_multipart:
                 header = self._multipart_handler.get_header(msg.body)
                 self.logger.debug(
-                    f"Multipart message arrived from {msg.sender}: {header} with length {len(msg.body)}"
+                    f"Multipart message received from {msg.sender}: {header} with length {len(msg.body)}"
                 )
                 multipart_msg = self._multipart_handler.rebuild_multipart(message=msg)
                 is_multipart_completed = multipart_msg is not None
@@ -96,7 +96,7 @@ class AgentBase(Agent):
                     is_multipart_completed=is_multipart_completed,
                 )
             self.logger.debug(
-                f"Message arrived from {msg.sender}: with length {len(msg.body)}"
+                f"Message received from {msg.sender}: with length {len(msg.body)}"
             )
             return RfMessage.from_message(
                 message=msg, is_multipart=False, is_multipart_completed=False

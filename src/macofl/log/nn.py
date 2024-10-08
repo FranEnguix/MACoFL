@@ -8,11 +8,11 @@ from spade.template import Template
 from .csv import CsvLogManager
 
 
-class MessageLogManager(CsvLogManager):
+class NnLogManager(CsvLogManager):
 
     def __init__(
         self,
-        base_logger_name="rf.message",
+        base_logger_name="rf.nn",
         extra_logger_name=None,
         level=logging.DEBUG,
         datetime_format="%Y-%m-%dT%H:%M:%S.%fZ",
@@ -32,35 +32,38 @@ class MessageLogManager(CsvLogManager):
 
     @staticmethod
     def get_header() -> str:
-        return "log_timestamp,log_name,iteration_id,timestamp,sender,to,type,size"
+        return "log_timestamp,log_name,iteration_number,timestamp,agent,seconds_to_complete,training_accuracy,training_loss,test_accuracy,test_loss"
 
     @staticmethod
     def get_template() -> Template:
-        return Template(metadata={"rf.observer.log": "message"})
+        return Template(metadata={"rf.observer.log": "nn"})
 
     def log(
         self,
         iteration_id: int,
-        sender: str | JID,
-        to: str | JID,
-        msg_type: str,
-        size: int,
+        agent: str | JID,
+        seconds: float,
+        training_accuracy: float,
+        training_loss: float,
+        test_accuracy: float,
+        test_loss: float,
         timestamp: Optional[datetime] = None,
-        level: Optional[int] = None,
+        level: Optional[int] = logging.DEBUG,
     ) -> None:
         lvl = self.level if level is None else level
         dt = datetime.now(tz=timezone.utc) if timestamp is None else timestamp
         dt_str = dt.strftime(self.datetime_format)
-        sender = str(sender.bare()) if isinstance(sender, JID) else sender
-        to = str(to.bare()) if isinstance(to, JID) else to
+        agent = str(agent.bare()) if isinstance(agent, JID) else agent
         msg = ",".join(
             [
                 str(iteration_id),
                 dt_str,
-                sender,
-                to,
-                msg_type,
-                str(size),
+                agent,
+                str(seconds),
+                str(training_accuracy),
+                str(training_loss),
+                str(test_accuracy),
+                str(test_loss),
             ]
         )
         self.logger.log(level=lvl, msg=msg)

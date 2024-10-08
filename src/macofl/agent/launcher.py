@@ -68,7 +68,7 @@ class LauncherAgent(AgentBase):
                 observers=self.agents_observers,
                 neighbours=neighbour_jids,
                 coordinator=self.agents_coordinator,
-                max_algorithm_iterations=20,
+                max_algorithm_iterations=5,
             )
             self.logger.debug(
                 f"The neighbour JIDs for agent {agent_jid.bare()} are {[str(j.bare()) for j in neighbour_jids]}"

@@ -33,6 +33,13 @@ class ConsensusReceiverState(State):
                 self.agent.logger.info(
                     f"[{self.agent.algorithm_iterations}] Consensus received in ReceiverState from {ct.sender.localpart} and consensus applied with neighbours: {[ct.sender.localpart for ct in cts]}."
                 )
+                self.agent.message_logger.log(
+                    iteration_id=self.agent.algorithm_iterations,
+                    sender=msg.sender,
+                    to=msg.to,
+                    msg_type="RECV",
+                    size=len(msg.body),
+                )
                 self.set_next_state("train")
             elif RfMessage.is_multipart_and_not_yet_completed(message=msg):
                 self.agent.logger.debug(
