@@ -1,11 +1,14 @@
 import codecs
 import copy
 import pickle
+import random
 from datetime import datetime, timezone
 from typing import Optional, OrderedDict
 
+import numpy as np
 import torch
 from torch import Tensor, nn
+from torch.backends import cudnn
 from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
@@ -28,6 +31,8 @@ class ModelManager:
         training_epochs: int,
         dataloaders: DataLoaders,
         device: Optional[str] = None,
+        seed: Optional[int] = 42,
+        deterministic: bool = False,
     ) -> None:
         self.model = model
         self.criterion = criterion
@@ -35,11 +40,24 @@ class ModelManager:
         self.batch_size = batch_size
         self.training_epochs = training_epochs
         self.dataloaders = dataloaders
+        self.seed = seed
+        self.deterministic = deterministic
         self.device: torch.device = (
             torch.device("cuda" if torch.cuda.is_available() else "cpu")
             if device is None
             else torch.device(device)
         )
+        if self.seed is not None:
+            torch.manual_seed(self.seed)
+            np.random.seed(self.seed)
+            random.seed(self.seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(self.seed)
+                torch.cuda.manual_seed_all(self.seed)
+        if self.deterministic and torch.cuda.is_available():
+            # This can decrease the performance
+            cudnn.deterministic = True
+            cudnn.benchmark = False
         self.initial_state: OrderedDict[str, Tensor] = copy.deepcopy(model.state_dict())
         self.pretrain_state: OrderedDict[str, Tensor] = copy.deepcopy(
             self.model.state_dict()
@@ -148,7 +166,7 @@ class ModelManager:
 
     def inference(self) -> ModelMetrics:
         """
-        Returns the TRAIN inference metrics.
+        Returns the TRAIN inference metrics using validation data.
         """
         return self._inference(dataloader=self.dataloaders.validation_data)
 

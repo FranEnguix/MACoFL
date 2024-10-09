@@ -197,3 +197,58 @@ class AgentNodeBase(AgentBase):
     def get_available_neighbours(self) -> list[JID]:
         # TODO: check if neighbour is available with self.presence.get_contacts()
         return self.neighbours
+
+
+class CoalitionAgentNodeBase(AgentNodeBase):
+
+    def __init__(
+        self,
+        jid: str,
+        password: str,
+        max_message_size: int,
+        coalition_id: int,
+        observers: Optional[list[JID]] = None,
+        neighbours: Optional[list[JID]] = None,
+        coalitions: Optional[dict[int, JID]] = None,
+        coordinator: Optional[JID] = None,
+        post_coordination_behaviours: Optional[
+            list[tuple[CyclicBehaviour, Template]]
+        ] = None,
+        web_address: str = "0.0.0.0",
+        web_port: int = 10000,
+        verify_security: bool = False,
+    ) -> None:
+        self.coalition_id = coalition_id
+        neighbours = [] if neighbours is None else neighbours
+        self.coalitions = {} if coalitions is None else coalitions
+        coalition_neighbours = self.coalitions.values()
+        if len(coalition_neighbours) != len(neighbours):
+            raise ValueError(
+                f"Coalition dict of agent {jid} must have all the neighbours information"
+            )
+        for neighbour in self.neighbours:
+            if neighbour not in coalition_neighbours:
+                raise ValueError(
+                    f"Coalition dict of agent {jid} must have all the neighbours information,"
+                    + f" but {neighbour} is not in coalitions: {self.coalitions}."
+                )
+
+        super().__init__(
+            jid,
+            password,
+            max_message_size,
+            observers,
+            neighbours,
+            coordinator,
+            post_coordination_behaviours,
+            web_address,
+            web_port,
+            verify_security,
+        )
+
+    def get_coalition_neighbours(self) -> list[JID]:
+        return (
+            []
+            if self.coalition_id not in self.coalitions
+            else self.coalitions[self.coalition_id]
+        )
