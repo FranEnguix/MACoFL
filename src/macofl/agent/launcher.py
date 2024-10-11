@@ -58,7 +58,10 @@ class LauncherAgent(AgentBase):
             consensus = Consensus(
                 max_order=len(neighbour_jids), max_seconds_to_accept_pre_consensus=600
             )
-            model_manager = ModelManagerFactory.get_cifar8()
+            agent_index = int(str(agent_jid.localpart)[1])
+            model_manager = ModelManagerFactory.get_cifar10(
+                iid=False, client_index=agent_index, seed=42
+            )
             agent = AcolAgent(
                 jid=str(agent_jid.bare()),
                 password="123",

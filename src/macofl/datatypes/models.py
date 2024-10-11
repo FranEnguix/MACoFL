@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 
 from ..datatypes.loaders import DataLoaders
 from ..datatypes.metrics import ModelMetrics
+from ..utils.random import RandomUtils
 
 
 class ModelManager:
@@ -47,17 +48,7 @@ class ModelManager:
             if device is None
             else torch.device(device)
         )
-        if self.seed is not None:
-            torch.manual_seed(self.seed)
-            np.random.seed(self.seed)
-            random.seed(self.seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed(self.seed)
-                torch.cuda.manual_seed_all(self.seed)
-        if self.deterministic and torch.cuda.is_available():
-            # This can decrease the performance
-            cudnn.deterministic = True
-            cudnn.benchmark = False
+        RandomUtils.set_randomness(seed=self.seed)
         self.initial_state: OrderedDict[str, Tensor] = copy.deepcopy(model.state_dict())
         self.pretrain_state: OrderedDict[str, Tensor] = copy.deepcopy(
             self.model.state_dict()
@@ -96,7 +87,7 @@ class ModelManager:
             loss: Tensor
             predicted: Tensor
 
-            for images, labels in self.dataloaders.train_data:
+            for images, labels in self.dataloaders.train:
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.optimizer.zero_grad()
                 outputs = self.model(images)
@@ -111,7 +102,7 @@ class ModelManager:
         self.__training = False
         end_time_z: datetime = datetime.now(tz=timezone.utc)
         accuracy: float = correct / total_samples
-        resulting_loss: float = total_loss / len(self.dataloaders.train_data)
+        resulting_loss: float = total_loss / len(self.dataloaders.train)
         metrics: ModelMetrics = ModelMetrics(
             accuracy=accuracy,
             loss=resulting_loss,
@@ -168,13 +159,13 @@ class ModelManager:
         """
         Returns the TRAIN inference metrics using validation data.
         """
-        return self._inference(dataloader=self.dataloaders.validation_data)
+        return self._inference(dataloader=self.dataloaders.validation)
 
     def test_inference(self) -> ModelMetrics:
         """
         Returns the TEST inference metrics.
         """
-        return self._inference(dataloader=self.dataloaders.test_data)
+        return self._inference(dataloader=self.dataloaders.test)
 
     @staticmethod
     def export_weights_and_biases(model: OrderedDict[str, Tensor]) -> str:

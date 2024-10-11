@@ -5,6 +5,6 @@ from torch.utils.data import DataLoader
 
 @dataclass
 class DataLoaders:
-    train_data: DataLoader
-    validation_data: DataLoader
-    test_data: DataLoader
+    train: DataLoader
+    validation: DataLoader
+    test: DataLoader

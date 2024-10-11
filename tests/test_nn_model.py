@@ -2,15 +2,16 @@ import torch
 from torch import nn
 from torch.optim import Adam
 
-from macofl.dataset.cifar import CIFAR8DataloaderGenerator
+from macofl.dataset.cifar import Cifar10DataLoaderGenerator
 from macofl.datatypes import ModelManager
-from macofl.nn.model.cifar import CIFAR8MLP
+from macofl.nn import ModelManagerFactory
+from macofl.nn.model.cifar import CifarMlp
 
 
-def build_neural_network() -> ModelManager:
-    cifar8_generator = CIFAR8DataloaderGenerator()
-    dataloaders = cifar8_generator.get_dataloaders()
-    model = CIFAR8MLP()
+def build_neural_network(seed: int = 42) -> ModelManager:
+    cifar10_generator = Cifar10DataLoaderGenerator()
+    dataloaders = cifar10_generator.get_dataloaders(iid=True, client_index=1)
+    model = CifarMlp(classes=10)
     return ModelManager(
         model=model,
         criterion=nn.CrossEntropyLoss(),
@@ -18,10 +19,11 @@ def build_neural_network() -> ModelManager:
         batch_size=64,
         training_epochs=1,
         dataloaders=dataloaders,
+        seed=seed,
     )
 
 
-def test_neural_network():
+def test_neural_network() -> None:
     model = build_neural_network()
     training_metrics = model.train()
     validation_metrics = model.inference()
@@ -33,7 +35,19 @@ def test_neural_network():
     print(f"Test metrics: {test_metrics.accuracy} - {test_metrics.loss}")
 
 
-def test_model_to_base64():
+def test_deterministic_neural_network() -> None:
+    model1 = ModelManagerFactory.get_cifar10(seed=42, iid=True)
+    model2 = ModelManagerFactory.get_cifar10(seed=42, iid=True)
+    assert are_weights_equal(model1.model, model2.model)
+
+
+def test_random_neural_network() -> None:
+    model1 = ModelManagerFactory.get_cifar10(seed=14, iid=True)
+    model2 = ModelManagerFactory.get_cifar10(seed=42, iid=True)
+    assert not are_weights_equal(model1.model, model2.model)
+
+
+def test_model_to_base64() -> None:
     model = build_neural_network()
     model_str = ModelManager.export_weights_and_biases(model.model.state_dict())
     model_reconstruct = ModelManager.import_weights_and_biases(model_str)
@@ -45,3 +59,25 @@ def test_model_to_base64():
         assert torch.allclose(
             model.initial_state[key], model_reconstruct[key]
         ), f"Reconstructed '{key}' tensor does not match the initial model"
+
+
+def are_weights_equal(model1: nn.Module, model2: nn.Module) -> bool:
+    """Compares the weights of two models to check if they are identical.
+
+    Args:
+        model1 (nn.Module): The first model.
+        model2 (nn.Module): The second model.
+
+    Returns:
+        bool: True if all the weights are identical, False otherwise.
+    """
+    # Check if both models have the same number of parameters
+    if len(list(model1.parameters())) != len(list(model2.parameters())):
+        return False
+
+    # Compare each corresponding parameter of the two models
+    for param1, param2 in zip(model1.parameters(), model2.parameters()):
+        if not torch.equal(param1, param2):
+            return False
+
+    return True

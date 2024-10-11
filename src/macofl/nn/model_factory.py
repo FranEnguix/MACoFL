@@ -1,37 +1,34 @@
-import random
 from typing import Optional
 
-import numpy as np
-import torch
 from torch import nn
-from torch.backends import cudnn
 from torch.optim import Adam
 
-from ..dataset.cifar import CIFAR8DataloaderGenerator
+from ..dataset.cifar import Cifar10DataLoaderGenerator
 from ..datatypes.models import ModelManager
-from .model.cifar import CIFAR8MLP
+from ..utils.random import RandomUtils
+from .model.cifar import CifarMlp
 
 
 class ModelManagerFactory:
 
     @staticmethod
-    def set_randomness(seed: Optional[int] = 42) -> None:
-        if seed is not None:
-            torch.manual_seed(seed)
-            np.random.seed(seed)
-            random.seed(seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed(seed)
-                torch.cuda.manual_seed_all(seed)
-            cudnn.deterministic = True
-            cudnn.benchmark = False
-
-    @staticmethod
-    def get_cifar8(seed: Optional[int] = 42) -> ModelManager:
-        ModelManagerFactory.set_randomness(seed)
-        cifar8_generator = CIFAR8DataloaderGenerator()
-        dataloaders = cifar8_generator.get_dataloaders()
-        model = CIFAR8MLP()
+    def get_cifar10(
+        iid: bool,
+        client_index: int = 0,
+        num_clients: int = 10,
+        dirichlet_alpha: float = 0.1,
+        seed: Optional[int] = 42,
+    ) -> ModelManager:
+        cifar10_generator = Cifar10DataLoaderGenerator()
+        dataloaders = cifar10_generator.get_dataloaders(
+            iid=iid,
+            client_index=client_index,
+            num_clients=num_clients,
+            dirichlet_alpha=dirichlet_alpha,
+            seed=seed,
+        )
+        RandomUtils.set_randomness(seed=seed)
+        model = CifarMlp(classes=10)
         return ModelManager(
             model=model,
             criterion=nn.CrossEntropyLoss(),

@@ -3,10 +3,11 @@ import torch.nn.functional as F
 from torch import nn
 
 
-class CIFAR8MLP(nn.Module):
-    def __init__(self):
+class CifarMlp(nn.Module):
+    def __init__(self, classes: int = 10):
         super().__init__()
-        # CIFAR100 images are 32x32 pixels with 3 color channels
+        self.classes = classes
+        # CIFAR images are 32x32 pixels with 3 color channels
         input_dim = 32 * 32 * 3  # Flatten the 32x32x3 image into a single vector
 
         # Define the MLP architecture
@@ -14,7 +15,7 @@ class CIFAR8MLP(nn.Module):
         self.fc2 = nn.Linear(512, 256)  # Second dense layer
         self.fc3 = nn.Linear(256, 128)  # Third dense layer
         self.fc4 = nn.Linear(128, 64)  # Fourth dense layer
-        self.fc5 = nn.Linear(64, 8)  # Output layer, 8 classes
+        self.fc5 = nn.Linear(64, self.classes)  # Output layer
 
         # Dropout to avoid overfitting
         self.dropout = nn.Dropout(p=0.1)

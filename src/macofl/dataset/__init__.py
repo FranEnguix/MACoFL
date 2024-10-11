@@ -1,4 +1,3 @@
-from . import cifar
-from .dataloader_generator import DataloaderGeneratorInterface
+from . import cifar, mnist
 
-__all__ = ["cifar"]
+__all__ = ["cifar", "mnist"]
