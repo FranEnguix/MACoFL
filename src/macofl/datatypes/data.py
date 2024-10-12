@@ -2,7 +2,9 @@ from abc import ABCMeta
 from dataclasses import dataclass
 from typing import Optional
 
-from torch.utils.data import DataLoader
+import numpy as np
+from torch.utils.data import DataLoader, Dataset, Subset
+from torchvision.datasets.vision import VisionDataset
 
 
 @dataclass
@@ -22,51 +24,77 @@ class IidDatasetSettings(DatasetSettings):
     def __init__(
         self,
         seed: Optional[int],
-        samples_in_percent: Optional[bool] = None,
-        train_samples: Optional[float | int] = None,
-        test_samples: Optional[float | int] = None,
+        train_samples_percent: Optional[float] = None,
+        train_samples_absolute: Optional[int] = None,
+        test_samples_percent: Optional[float] = None,
+        test_samples_absolute: Optional[int] = None,
     ) -> None:
         super().__init__(iid=True, seed=seed)
-        self.samples_in_percent = samples_in_percent
-        self._train_samples = train_samples
-        self._test_samples = test_samples
+        self.train_samples_percent = train_samples_percent
+        self.train_samples_absolute = train_samples_absolute
+        self.test_samples_percent = test_samples_percent
+        self.test_samples_absolute = test_samples_absolute
 
-        if not self.are_all_samples_selected():
-            is_percent = isinstance(self._train_samples, float) and isinstance(
-                self._test_samples, float
-            )
-            is_number_of_samples = isinstance(self._train_samples, int) and isinstance(
-                self._test_samples, int
-            )
-            if not (
-                (is_percent and samples_in_percent)
-                or (is_number_of_samples and not samples_in_percent)
-            ):
-                raise ValueError(
-                    "All samples must be either percentage or number of samples."
-                )
+        if train_samples_percent is not None and train_samples_absolute is not None:
+            raise ValueError("Absolute and percent must be exclusive in train.")
+        if test_samples_percent is not None and test_samples_absolute is not None:
+            raise ValueError("Absolute and percent must be exclusive in test.")
 
-    @property
-    def train_samples(self) -> float | int:
-        if self.are_all_samples_selected() or self._train_samples is None:
-            raise RuntimeError(
-                "Trying to get a subset of train samples when all are selected."
-            )
-        return self._train_samples
+    def get_new_train_dataset(
+        self,
+        original: Subset,
+    ) -> Subset:
+        return self._get_new_dataset(
+            original=original,
+            new_percent=self.train_samples_percent,
+            new_absolute=self.train_samples_absolute,
+        )
 
-    @property
-    def test_samples(self) -> float | int:
-        if self.are_all_samples_selected() or self._test_samples is None:
-            raise RuntimeError(
-                "Trying to get a subset of test samples when all are selected."
+    def get_new_test_dataset(
+        self,
+        original: Subset,
+    ) -> Subset:
+        return self._get_new_dataset(
+            original=original,
+            new_percent=self.test_samples_percent,
+            new_absolute=self.test_samples_absolute,
+        )
+
+    def _get_new_dataset(
+        self,
+        original: Subset,
+        new_percent: Optional[float] = None,
+        new_absolute: Optional[int] = None,
+    ) -> Subset:
+        if new_percent is None and new_absolute is None:
+            return original
+        total_samples = len(original)
+        wanted_samples: int
+        if new_percent is not None:
+            wanted_samples = int(total_samples * new_percent)
+        elif new_absolute is not None:
+            wanted_samples = new_absolute
+        if total_samples < wanted_samples:
+            raise ValueError(
+                f"The num of samples is less than the requested: {total_samples} < {wanted_samples}"
             )
-        return self._test_samples
+        new_indices = np.random.choice(
+            total_samples, wanted_samples, replace=False
+        ).tolist()
+        return Subset(original, new_indices)
 
     def are_all_samples_selected(self) -> bool:
-        return self.samples_in_percent is None
+        full_train = self.are_all_train_samples_selected()
+        full_test = self.are_all_test_samples_selected()
+        return full_train and full_test
 
-    def is_percent_of_samples(self) -> bool:
-        return self.samples_in_percent is not None and self.samples_in_percent
+    def are_all_test_samples_selected(self) -> bool:
+        return self.test_samples_percent is None and self.test_samples_absolute is None
+
+    def are_all_train_samples_selected(self) -> bool:
+        return (
+            self.train_samples_percent is None and self.train_samples_absolute is None
+        )
 
 
 class NonIidDatasetSettings(DatasetSettings, metaclass=ABCMeta):

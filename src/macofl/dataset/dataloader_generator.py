@@ -112,55 +112,24 @@ class BaseDataLoaderGenerator(DataloaderGeneratorInterface):
         Returns:
             DataLoaders: Data loaders for IID data.
         """
+        train_dataset: Subset
+        test_dataset: Subset
         train_dataset, test_dataset = self._get_datasets()
+
+        if not settings.are_all_train_samples_selected():
+            train_dataset = settings.get_new_train_dataset(train_dataset)
+
+        if not settings.are_all_test_samples_selected():
+            test_dataset = settings.get_new_test_dataset(test_dataset)
+
+        # Split train in train and validation
         total_train_samples = len(train_dataset)
-        total_test_samples = len(test_dataset)
-
-        if not settings.are_all_samples_selected():
-            wanted_train_samples = int(
-                total_train_samples * settings.train_samples
-                if settings.is_percent_of_samples()
-                else settings.train_samples
-            )
-            wanted_test_samples = int(
-                total_test_samples * settings.test_samples
-                if settings.is_percent_of_samples()
-                else settings.test_samples
-            )
-
-            if total_train_samples < wanted_train_samples:
-                raise ValueError(
-                    f"The num of train samples is less than the requested: {total_test_samples} < {wanted_train_samples}"
-                )
-            if total_test_samples < wanted_test_samples:
-                raise ValueError(
-                    f"The num of test samples is less than the requested: {total_test_samples} < {wanted_test_samples}"
-                )
-
-            total_train_samples = wanted_train_samples
-            total_test_samples = wanted_test_samples
-
-            # Generate random indices for the subset
-            train_indices = np.random.choice(
-                len(train_dataset), total_train_samples, replace=False
-            ).tolist()
-            test_indices = np.random.choice(
-                len(test_dataset), total_test_samples, replace=False
-            ).tolist()
-
-            # Subset the dataset using the selected indices
-            train_dataset = Subset(train_dataset, train_indices)
-            test_dataset = Subset(test_dataset, test_indices)
-
-        # Subset train_dataset to total_train_samples if not settings.are_all_samples_selected():
-        # Subset test_dataset to total_test_samples if not settings.are_all_samples_selected():
-
         train_size = int(self.train_size * total_train_samples)
         validation_size = total_train_samples - train_size
-
         train_set, validation_set = random_split(
             train_dataset, [train_size, validation_size]
         )
+
         return self._build_dataloaders(
             batch_size=self.batch_size,
             train=train_set,

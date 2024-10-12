@@ -37,10 +37,7 @@ class TestDataLoader(unittest.TestCase):
 
     def test_reduced_iid(self, new_size: float = 0.1):
         iid_reduced_settings = IidDatasetSettings(
-            seed=42,
-            samples_in_percent=True,
-            train_samples=new_size,
-            test_samples=new_size,
+            seed=42, train_samples_percent=new_size, test_samples_percent=new_size
         )
         iid_full_settings = IidDatasetSettings(seed=42)
         for generator in self.get_generators():
@@ -57,3 +54,21 @@ class TestDataLoader(unittest.TestCase):
                     >= batches_reduced
                     >= batches_full * (new_size - 0.02)
                 )
+
+    def test_only_reduce_train(self, new_size: float = 0.1):
+        iid_reduced_settings = IidDatasetSettings(
+            seed=42, train_samples_percent=new_size
+        )
+        non_iid_settings = NonIidDirichletDatasetSettings(
+            seed=42, num_clients=2, client_index=1
+        )
+        for generator in self.get_generators():
+            iid = generator.get_dataloaders(settings=iid_reduced_settings)
+            non_iid = generator.get_dataloaders(settings=non_iid_settings)
+            train_batches = len(iid.test)
+            diritchet_batches = len(non_iid.test)
+            assert (
+                diritchet_batches - non_iid_settings.num_clients
+                <= train_batches
+                <= diritchet_batches + non_iid_settings.num_clients
+            ), "The number of batchs of IID and non-IID differs more than expected."
