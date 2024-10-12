@@ -5,6 +5,7 @@ from macofl.agent.premiofl import AcolAgent
 from macofl.behaviour.launcher import LaunchAgentsBehaviour, Wait
 
 from ..datatypes.consensus import Consensus
+from ..datatypes.data import NonIidDirichletDatasetSettings
 from ..nn.model_factory import ModelManagerFactory
 from .base import AgentNodeBase
 
@@ -59,9 +60,13 @@ class LauncherAgent(AgentBase):
                 max_order=len(neighbour_jids), max_seconds_to_accept_pre_consensus=600
             )
             agent_index = int(str(agent_jid.localpart)[1])
-            model_manager = ModelManagerFactory.get_cifar10(
-                iid=False, client_index=agent_index, seed=42
+
+            dataset_settings = NonIidDirichletDatasetSettings(
+                seed=42,
+                num_clients=len(self.agents_to_launch),
+                client_index=agent_index,
             )
+            model_manager = ModelManagerFactory.get_cifar10(settings=dataset_settings)
             agent = AcolAgent(
                 jid=str(agent_jid.bare()),
                 password="123",

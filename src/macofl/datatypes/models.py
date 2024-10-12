@@ -1,21 +1,18 @@
 import codecs
 import copy
 import pickle
-import random
 from datetime import datetime, timezone
 from typing import Optional, OrderedDict
 
-import numpy as np
 import torch
 from torch import Tensor, nn
-from torch.backends import cudnn
 from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
-from ..datatypes.loaders import DataLoaders
 from ..datatypes.metrics import ModelMetrics
 from ..utils.random import RandomUtils
+from .data import DataLoaders
 
 
 class ModelManager:

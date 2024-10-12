@@ -8,28 +8,24 @@ from torchvision import transforms
 from torchvision.datasets.vision import VisionDataset
 from torchvision.transforms import Compose
 
-from macofl.datatypes.loaders import DataLoaders
-
-from ..datatypes.loaders import DataLoaders
+from ..datatypes.data import (
+    DataLoaders,
+    DatasetSettings,
+    IidDatasetSettings,
+    NonIidDirichletDatasetSettings,
+    NonIidNonOverlappingClassesDatasetSettings,
+)
 from ..utils.random import RandomUtils
 
 
 class DataloaderGeneratorInterface(object, metaclass=ABCMeta):
 
     @abstractmethod
-    def get_dataloaders(
-        self,
-        iid: bool,
-        client_index: int,
-        num_clients: int = 10,
-        dirichlet_alpha: float = 0.1,
-    ) -> DataLoaders:
+    def get_dataloaders(self, settings: DatasetSettings) -> DataLoaders:
         """Gets the data loaders for IID or Non-IID data.
 
         Args:
-            iid (bool): If True, generates IID data loaders; otherwise, Non-IID.
-            num_clients (int): Number of clients for Non-IID data.
-            classes_per_client (int): Number of classes per client for Non-IID data.
+            settings (DatasetSettings): The settings to generate the specified data loaders.
 
         Returns:
             DataLoaders: Dataclass containing the data loaders.
@@ -110,15 +106,58 @@ class BaseDataLoaderGenerator(DataloaderGeneratorInterface):
         )
         return train_dataset, test_dataset
 
-    def _build_dataloaders_iid(self) -> DataLoaders:
+    def _build_dataloaders_iid(self, settings: IidDatasetSettings) -> DataLoaders:
         """Builds IID data loaders.
 
         Returns:
             DataLoaders: Data loaders for IID data.
         """
         train_dataset, test_dataset = self._get_datasets()
-        train_size = int(self.train_size * len(train_dataset))
-        validation_size = len(train_dataset) - train_size
+        total_train_samples = len(train_dataset)
+        total_test_samples = len(test_dataset)
+
+        if not settings.are_all_samples_selected():
+            wanted_train_samples = int(
+                total_train_samples * settings.train_samples
+                if settings.is_percent_of_samples()
+                else settings.train_samples
+            )
+            wanted_test_samples = int(
+                total_test_samples * settings.test_samples
+                if settings.is_percent_of_samples()
+                else settings.test_samples
+            )
+
+            if total_train_samples < wanted_train_samples:
+                raise ValueError(
+                    f"The num of train samples is less than the requested: {total_test_samples} < {wanted_train_samples}"
+                )
+            if total_test_samples < wanted_test_samples:
+                raise ValueError(
+                    f"The num of test samples is less than the requested: {total_test_samples} < {wanted_test_samples}"
+                )
+
+            total_train_samples = wanted_train_samples
+            total_test_samples = wanted_test_samples
+
+            # Generate random indices for the subset
+            train_indices = np.random.choice(
+                len(train_dataset), total_train_samples, replace=False
+            ).tolist()
+            test_indices = np.random.choice(
+                len(test_dataset), total_test_samples, replace=False
+            ).tolist()
+
+            # Subset the dataset using the selected indices
+            train_dataset = Subset(train_dataset, train_indices)
+            test_dataset = Subset(test_dataset, test_indices)
+
+        # Subset train_dataset to total_train_samples if not settings.are_all_samples_selected():
+        # Subset test_dataset to total_test_samples if not settings.are_all_samples_selected():
+
+        train_size = int(self.train_size * total_train_samples)
+        validation_size = total_train_samples - train_size
+
         train_set, validation_set = random_split(
             train_dataset, [train_size, validation_size]
         )
@@ -130,7 +169,7 @@ class BaseDataLoaderGenerator(DataloaderGeneratorInterface):
         )
 
     def _build_dataloaders_non_iid(
-        self, num_clients: int, classes_per_client: int
+        self, settings: NonIidNonOverlappingClassesDatasetSettings
     ) -> DataLoaders:
         """Builds Non-IID data loaders.
 
@@ -153,14 +192,17 @@ class BaseDataLoaderGenerator(DataloaderGeneratorInterface):
         # Shuffle and distribute classes to clients
         classes = list(range(num_classes))
         np.random.shuffle(classes)
-        if num_clients * classes_per_client <= num_classes:
+        if settings.num_clients * settings.classes_per_client <= num_classes:
             raise RuntimeError(
-                f"Not enough classes {num_classes} for the number of clients {num_clients} and {classes_per_client}."
+                f"Not enough classes {num_classes} for the number of clients "
+                + f"{settings.num_clients} and {settings.classes_per_client}."
             )
 
         client_classes = [
-            classes[i * classes_per_client : (i + 1) * classes_per_client]
-            for i in range(num_clients)
+            classes[
+                i * settings.classes_per_client : (i + 1) * settings.classes_per_client
+            ]
+            for i in range(settings.num_clients)
         ]
 
         # Collect indices for each client
@@ -187,7 +229,7 @@ class BaseDataLoaderGenerator(DataloaderGeneratorInterface):
         )
 
     def _build_dataloaders_non_iid_dirichlet(
-        self, client_index: int, num_clients: int, alpha: float
+        self, settings: NonIidDirichletDatasetSettings
     ) -> DataLoaders:
         """Builds Non-IID data loaders using a Dirichlet distribution.
 
@@ -198,6 +240,9 @@ class BaseDataLoaderGenerator(DataloaderGeneratorInterface):
         Returns:
             DataLoaders: Data loaders for Non-IID data.
         """
+        num_clients = settings.num_clients
+        client_index = settings.client_index
+
         train_dataset, test_dataset = self._get_datasets()
         num_classes = len(train_dataset.classes)
         targets = np.array(train_dataset.targets)
@@ -208,7 +253,9 @@ class BaseDataLoaderGenerator(DataloaderGeneratorInterface):
         client_data_indices: list[list] = [[] for _ in range(num_clients)]
 
         for _, indices in enumerate(class_indices):
-            proportions = np.random.dirichlet(np.repeat(alpha, num_clients))
+            proportions = np.random.dirichlet(
+                np.repeat(settings.dirichlet_alpha, num_clients)
+            )
             proportions = (proportions * len(indices)).astype(int)
             proportions[-1] = len(indices) - sum(proportions[:-1])  # Adjust last client
             split_indices = np.split(indices, np.cumsum(proportions)[:-1])
@@ -235,17 +282,12 @@ class BaseDataLoaderGenerator(DataloaderGeneratorInterface):
             test=test_dataset,
         )
 
-    def get_dataloaders(
-        self,
-        iid: bool,
-        client_index: int = 0,
-        num_clients: int = 10,
-        dirichlet_alpha: float = 0.1,
-        seed: Optional[int] = 42,
-    ) -> DataLoaders:
-        RandomUtils.set_randomness(seed=seed)
-        if iid:
-            return self._build_dataloaders_iid()
-        return self._build_dataloaders_non_iid_dirichlet(
-            client_index=client_index, num_clients=num_clients, alpha=dirichlet_alpha
-        )
+    def get_dataloaders(self, settings: DatasetSettings) -> DataLoaders:
+        RandomUtils.set_randomness(seed=settings.seed)
+        if isinstance(settings, IidDatasetSettings):
+            return self._build_dataloaders_iid(settings=settings)
+        if isinstance(settings, NonIidDirichletDatasetSettings):
+            return self._build_dataloaders_non_iid_dirichlet(settings=settings)
+        if isinstance(settings, NonIidNonOverlappingClassesDatasetSettings):
+            return self._build_dataloaders_non_iid(settings=settings)
+        raise NotImplementedError

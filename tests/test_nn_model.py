@@ -4,13 +4,15 @@ from torch.optim import Adam
 
 from macofl.dataset.cifar import Cifar10DataLoaderGenerator
 from macofl.datatypes import ModelManager
+from macofl.datatypes.data import IidDatasetSettings
 from macofl.nn import ModelManagerFactory
 from macofl.nn.model.cifar import CifarMlp
 
 
 def build_neural_network(seed: int = 42) -> ModelManager:
     cifar10_generator = Cifar10DataLoaderGenerator()
-    dataloaders = cifar10_generator.get_dataloaders(iid=True, client_index=1)
+    iid_settings = IidDatasetSettings(seed=42)
+    dataloaders = cifar10_generator.get_dataloaders(settings=iid_settings)
     model = CifarMlp(classes=10)
     return ModelManager(
         model=model,
@@ -36,14 +38,15 @@ def test_neural_network() -> None:
 
 
 def test_deterministic_neural_network() -> None:
-    model1 = ModelManagerFactory.get_cifar10(seed=42, iid=True)
-    model2 = ModelManagerFactory.get_cifar10(seed=42, iid=True)
+    iid_settings = IidDatasetSettings(seed=42)
+    model1 = ModelManagerFactory.get_cifar10(settings=iid_settings)
+    model2 = ModelManagerFactory.get_cifar10(settings=iid_settings)
     assert are_weights_equal(model1.model, model2.model)
 
 
 def test_random_neural_network() -> None:
-    model1 = ModelManagerFactory.get_cifar10(seed=14, iid=True)
-    model2 = ModelManagerFactory.get_cifar10(seed=42, iid=True)
+    model1 = ModelManagerFactory.get_cifar10(settings=IidDatasetSettings(seed=42))
+    model2 = ModelManagerFactory.get_cifar10(settings=IidDatasetSettings(seed=14))
     assert not are_weights_equal(model1.model, model2.model)
 
 
