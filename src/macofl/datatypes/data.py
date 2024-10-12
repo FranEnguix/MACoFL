@@ -3,8 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
-from torch.utils.data import DataLoader, Dataset, Subset
-from torchvision.datasets.vision import VisionDataset
+from torch.utils.data import DataLoader, Subset
 
 
 @dataclass

@@ -1,7 +1,8 @@
 import traceback
 from typing import Optional
 
-from aioxmpp import JID
+from aioxmpp import JID, PresenceType
+from aioxmpp.stanza import Presence
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour
 from spade.message import Message
@@ -177,7 +178,7 @@ class AgentNodeBase(AgentBase):
             traceback.print_exc()
 
     def get_non_subscribe_both_neighbours(self) -> dict[JID, str]:
-        contacts: dict[JID, dict] = self.presence.get_contacts()
+        contacts: dict[JID, dict[str, str | Presence]] = self.presence.get_contacts()
         result = {
             j.bare(): data["subscription"]
             for j, data in contacts.items()
@@ -189,14 +190,23 @@ class AgentNodeBase(AgentBase):
         return result
 
     def is_presence_completed(self) -> bool:
-        contacts: dict[JID, dict] = self.presence.get_contacts()
+        contacts: dict[JID, dict[str, str | Presence]] = self.presence.get_contacts()
         if not all(ag.bare() in contacts for ag in self.neighbours):
             return False
         return all(data["subscription"] == "both" for data in contacts.values())
 
     def get_available_neighbours(self) -> list[JID]:
-        # TODO: check if neighbour is available with self.presence.get_contacts()
-        return self.neighbours
+        available_contacts: list[JID] = []
+        contacts: dict[JID, dict[str, str | Presence]] = self.presence.get_contacts()
+        # contacts example: a1@localhost: {'subscription': 'both', 'ask': 'subscribe',
+        # 'presence': <presence from='a1@localhost/lnvf1R8J' to='a0@localhost' id=':sw_LBqbBrY8pBucyD023'
+        # type=<PresenceType.AVAILABLE: None>>}
+        for agent, contact_info in contacts.items():
+            if "presence" in contact_info:
+                presence: Presence = contact_info["presence"]
+                if presence.type_ == PresenceType.AVAILABLE:
+                    available_contacts.append(agent.bare())
+        return available_contacts
 
 
 class CoalitionAgentNodeBase(AgentNodeBase):

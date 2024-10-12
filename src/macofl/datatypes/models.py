@@ -11,7 +11,8 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
 from ..datatypes.metrics import ModelMetrics
-from ..utils.random import RandomUtils
+
+# from ..utils.random import RandomUtils
 from .data import DataLoaders
 
 
@@ -45,7 +46,8 @@ class ModelManager:
             if device is None
             else torch.device(device)
         )
-        RandomUtils.set_randomness(seed=self.seed)
+        # TODO when the below TODO is completed: RandomUtils.set_randomness(seed=self.seed)
+        # TODO Ask for a model generator and generate the model here: self.model = generator.get_model(parameters)
         self.initial_state: OrderedDict[str, Tensor] = copy.deepcopy(model.state_dict())
         self.pretrain_state: OrderedDict[str, Tensor] = copy.deepcopy(
             self.model.state_dict()

@@ -60,7 +60,6 @@ class LauncherAgent(AgentBase):
                 max_order=len(neighbour_jids), max_seconds_to_accept_pre_consensus=600
             )
             agent_index = int(str(agent_jid.localpart)[1])
-
             dataset_settings = NonIidDirichletDatasetSettings(
                 seed=42,
                 num_clients=len(self.agents_to_launch),
@@ -76,7 +75,7 @@ class LauncherAgent(AgentBase):
                 observers=self.agents_observers,
                 neighbours=neighbour_jids,
                 coordinator=self.agents_coordinator,
-                max_algorithm_iterations=5,
+                max_algorithm_iterations=3,
             )
             self.logger.debug(
                 f"The neighbour JIDs for agent {agent_jid.bare()} are {[str(j.bare()) for j in neighbour_jids]}"
