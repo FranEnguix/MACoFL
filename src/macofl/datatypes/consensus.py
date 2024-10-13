@@ -61,7 +61,7 @@ class Consensus:
     ) -> Tensor:
         if max_order <= 1:
             raise ValueError(
-                f"Max order of consensus must be greater than 1 and get {max_order}."
+                f"Max order of consensus must be greater than 1 and it is {max_order}."
             )
         # epsilon_margin because must be LESS than 1 / max_order
         epsilon = 1 / max_order - epsilon_margin

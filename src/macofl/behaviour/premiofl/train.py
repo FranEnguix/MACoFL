@@ -19,18 +19,23 @@ class TrainAndApplyConsensusState(State):
         self.agent.algorithm_iterations += 1
         if self.agent.are_max_iterations_reached():
             self.agent.logger.info(
-                f"[{self.agent.algorithm_iterations - 1}] Stopping agent because max_algorithm_iterations reached: {self.agent.algorithm_iterations - 1}/{self.agent.max_algorithm_iterations}"
+                f"[{self.agent.algorithm_iterations - 1}] Stopping agent because max_algorithm_iterations "
+                + f"reached: {self.agent.algorithm_iterations - 1}/{self.agent.max_algorithm_iterations}"
             )
             await self.agent.stop()
         else:
             self.agent.logger.info(
-                f"[{self.agent.algorithm_iterations}] Starting ACoL algorithm iteration id: {self.agent.algorithm_iterations}"
+                f"[{self.agent.algorithm_iterations}] Starting algorithm iteration id: "
+                + f"{self.agent.algorithm_iterations}"
             )
 
     async def run(self) -> None:
         try:
             if not self.agent.are_max_iterations_reached():
                 # Train the model
+                self.agent.logger.debug(
+                    f"[{self.agent.algorithm_iterations}] Starting training..."
+                )
                 metrics_train = self.agent.model_manager.train(
                     train_logger=self.agent.nn_train_logger.log_train_epoch,
                     agent_jid=self.agent.jid,
@@ -45,16 +50,18 @@ class TrainAndApplyConsensusState(State):
                     test=metrics_test,
                 )
 
-                # Apply consensus
-                consensus_transmissions_applied = (
-                    await self.agent.apply_all_consensus_transmission(
-                        send_model_during_consensus=False
-                    )
-                )
-                self.agent.logger.info(
-                    f"[{self.agent.algorithm_iterations}] Consensus completed with neighbours: "
-                    + f"{[ct.sender.localpart for ct in consensus_transmissions_applied]}."
-                )
+                # # Apply consensus
+                # self.agent.logger.debug(
+                #     f"[{self.agent.algorithm_iterations}] Starting consensus..."
+                # )
+                # consensus_transmissions_applied = (
+                #     await self.agent.apply_all_consensus_transmission()
+                # )
+                # if consensus_transmissions_applied:
+                #     self.agent.logger.info(
+                #         f"[{self.agent.algorithm_iterations}] Post-train consensus completed with neighbours: "
+                #         + f"{[ct.sender.localpart for ct in consensus_transmissions_applied]}."
+                #     )
                 self.set_next_state("send")
 
         except Exception as e:

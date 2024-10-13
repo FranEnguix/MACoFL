@@ -5,6 +5,7 @@ from typing import Optional, OrderedDict
 
 from aioxmpp import JID
 from spade.behaviour import CyclicBehaviour
+from spade.message import Message
 from spade.template import Template
 from torch import Tensor
 
@@ -14,6 +15,8 @@ from ...datatypes.models import ModelManager
 from ...log.algorithm import AlgorithmLogManager
 from ...log.message import MessageLogManager
 from ...log.nn import NnInferenceLogManager, NnTrainLogManager
+from ...similarity.similarity_manager import SimilarityManager
+from ...similarity.similarity_vector import SimilarityVector
 from ..base import AgentNodeBase
 
 
@@ -39,6 +42,7 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         self.consensus = consensus
         self.model_manager = model_manager
         self.max_algorithm_iterations = max_algorithm_iterations  # None = inf
+        self.similarity_manager: SimilarityManager = SimilarityManager(model_manager)
         self.algorithm_iterations: int = 0
         self.consensus_transmissions: Queue[ConsensusTransmission] = Queue()
         self.message_logger = MessageLogManager(extra_logger_name=extra_name)
@@ -58,12 +62,39 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
             verify_security,
         )
 
-    @abstractmethod
     def select_neighbours(self) -> list[JID]:
+        """
+        Get the selected available neighbours to share the model layers, based on the implementation criteria.
+
+        Raises:
+            NotImplementedError: _select_neighbours must be overrided or it raises this error.
+
+        Returns:
+            list[JID]: The list of the selected available neighbours.
+        """
+        return self._select_neighbours(self.get_available_neighbours())
+
+    @abstractmethod
+    def _select_neighbours(self, neighbours: list[JID]) -> list[JID]:
         raise NotImplementedError
 
     @abstractmethod
-    def select_layers(self) -> OrderedDict[str, Tensor]:
+    def assign_layers(
+        self, neighbours: list[JID]
+    ) -> dict[JID, OrderedDict[str, Tensor]]:
+        """
+        This function assigns which layers will be sent to each neighbour. In the paper it is coined as `S_L_N`.
+
+        Args:
+            neighbours (list[JID]): The neighbours that will receive the layers of the neural network model.
+
+        Raises:
+            NotImplementedError: This function must be overrided or it raises this error.
+
+        Returns:
+            dict[JID, OrderedDict[str, Tensor]]: The keys are the neighbour's `aioxmpp.JID`s and the values are the
+            layer names with the `torch.Tensor` weights or biases.
+        """
         raise NotImplementedError
 
     def put_model_to_consensus_queue(self, model: OrderedDict[str, Tensor]) -> None:
@@ -101,9 +132,6 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
     async def apply_all_consensus_transmission(
         self,
         consensus_transmission: Optional[ConsensusTransmission] = None,
-        send_model_during_consensus: bool = False,
-        metadata: Optional[dict[str, str]] = None,
-        behaviour: Optional[CyclicBehaviour] = None,
     ) -> list[ConsensusTransmission]:
         consumed_consensus_transmissions: list[JID] = []
         if consensus_transmission is not None:
@@ -114,36 +142,56 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
             self.apply_consensus(ct.model)
             ct.processed_end_time_z = datetime.now(tz=timezone.utc)
             consumed_consensus_transmissions.append(ct)
-            if send_model_during_consensus:
-                await self.send_local_weights(
-                    neighbour=ct.sender, metadata=metadata, behaviour=behaviour
-                )
             self.consensus_transmissions.task_done()
         return consumed_consensus_transmissions
 
-    async def send_local_weights(
+    async def send_similarity_vector(
         self,
         neighbour: JID,
+        vector: SimilarityVector,
+        thread: Optional[str] = None,
         metadata: Optional[dict[str, str]] = None,
         behaviour: Optional[CyclicBehaviour] = None,
     ) -> None:
-        model = self.select_layers()
+        msg = vector.to_message()
+        msg.sender = str(self.jid.bare())
+        msg.to = str(neighbour.bare())
+        msg.thread = thread
+        msg.metadata = metadata
+        await self.__send_message(
+            message=msg, behaviour=behaviour, log_tag="-SIMILARITY"
+        )
+
+    async def send_local_layers(
+        self,
+        neighbour: JID,
+        layers: OrderedDict[str, Tensor],
+        thread: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+        behaviour: Optional[CyclicBehaviour] = None,
+    ) -> None:
         ct = ConsensusTransmission(
-            model=model,
+            model=layers,
             sender=self.jid,
         )
         msg = ct.to_message()
         msg.sender = str(self.jid.bare())
         msg.to = str(neighbour.bare())
-        if metadata is not None:
-            msg.metadata = metadata
-        await self.send(message=msg, behaviour=behaviour)
+        msg.thread = thread
+        msg.metadata = metadata
+        await self.__send_message(message=msg, behaviour=behaviour, log_tag="-LAYERS")
+
+    async def __send_message(
+        self, message: Message, behaviour: CyclicBehaviour, log_tag: str = ""
+    ) -> None:
+        await self.send(message=message, behaviour=behaviour)
         self.message_logger.log(
             iteration_id=self.algorithm_iterations,
-            sender=msg.sender,
-            to=msg.to,
-            msg_type="SEND",
-            size=len(msg.body),
+            sender=message.sender,
+            to=message.to,
+            msg_type=f"SEND{log_tag}",
+            size=len(message.body),
+            thread=message.thread,
         )
 
     def are_max_iterations_reached(self) -> bool:

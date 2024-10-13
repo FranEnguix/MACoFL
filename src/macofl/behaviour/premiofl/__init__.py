@@ -1,3 +1,3 @@
-from .premiofl import CyclicConsensusReceiverBehaviour
+from .layer_receiver import LayerReceiverBehaviour
 
-__all__ = ["CyclicConsensusReceiverBehaviour"]
+__all__ = ["LayerReceiverBehaviour"]

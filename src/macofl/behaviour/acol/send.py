@@ -3,14 +3,14 @@ from typing import TYPE_CHECKING
 from spade.behaviour import State
 
 if TYPE_CHECKING:
-    from ...agent.premiofl.acol import AcolAgent
+    from ...agent.premiofl.premiofl import PremioFlAgent
 
 import traceback
 
 
 class SendState(State):
     def __init__(self) -> None:
-        self.agent: AcolAgent
+        self.agent: PremioFlAgent
         super().__init__()
 
     async def on_start(self) -> None:
@@ -27,13 +27,13 @@ class SendState(State):
             if selected_neighbours:
                 metadata = {"rf.conversation": "consensus_send_to_cyclic_receive"}
                 for neighbour in selected_neighbours:
-                    await self.agent.send_local_weights(
-                        neighbour=neighbour, metadata=metadata, behaviour=self
-                    )
+                    # await self.agent.send_local_layers(
+                    #     neighbour=neighbour, metadata=metadata, behaviour=self
+                    # )
                     self.agent.logger.info(
                         f"[{self.agent.algorithm_iterations}] Local weights sent to: {neighbour.localpart}"
                     )
-                self.set_next_state("receive")
+                self.set_next_state("consensus")
             else:
                 self.set_next_state("train")
         except Exception as e:

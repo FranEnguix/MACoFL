@@ -8,8 +8,8 @@ from torch import Tensor
 from macofl.datatypes.consensus import Consensus
 from macofl.datatypes.models import ModelManager
 
-from ...behaviour.acol.fsm import AcolFsmBehaviour
-from ...behaviour.premiofl.premiofl import CyclicConsensusReceiverBehaviour
+from ...behaviour.premiofl.fsm import AcolFsmBehaviour
+from ...behaviour.premiofl.layer_receiver import LayerReceiverBehaviour
 from .premiofl import PremioFlAgent
 
 
@@ -31,7 +31,7 @@ class AcolAgent(PremioFlAgent):
         verify_security: bool = False,
     ):
         self.acol_fsm = AcolFsmBehaviour()
-        self.acol_cyclic_receiver = CyclicConsensusReceiverBehaviour()
+        self.acol_cyclic_receiver = LayerReceiverBehaviour()
         post_coordination_behaviours = [
             (self.acol_fsm, None),
             (
@@ -57,10 +57,12 @@ class AcolAgent(PremioFlAgent):
             verify_security,
         )
 
-    def select_layers(self) -> OrderedDict[str, Tensor]:
-        return self.model_manager.model.state_dict()
-
-    def select_neighbours(self) -> list[JID]:
-        if not self.get_available_neighbours():
+    def _select_neighbours(self, neighbours: list[JID]) -> list[JID]:
+        if not neighbours:
             return []
-        return [random.choice(self.get_available_neighbours())]
+        return [random.choice(neighbours)]
+
+    def assign_layers(
+        self, neighbours: list[JID]
+    ) -> dict[JID, OrderedDict[str, Tensor]]:
+        return {n: self.model_manager.model.state_dict() for n in neighbours}

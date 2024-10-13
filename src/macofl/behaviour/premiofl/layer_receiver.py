@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from ...agent.premiofl.premiofl import PremioFlAgent
 
 
-class CyclicConsensusReceiverBehaviour(CyclicBehaviour):
+class LayerReceiverBehaviour(CyclicBehaviour):
 
     def __init__(self) -> None:
         self.agent: PremioFlAgent
@@ -28,8 +28,11 @@ class CyclicConsensusReceiverBehaviour(CyclicBehaviour):
             consensus_tr.received_time_z = datetime.now(tz=timezone.utc)  # zulu = utc+0
 
             if not consensus_tr.sent_time_z:
-                error_msg = f"[{self.agent.algorithm_iterations}] Consensus message from {msg.sender.bare()} without timestamp."
-                self.agent.logger.error(error_msg)
+                error_msg = (
+                    f"[{self.agent.algorithm_iterations}] Consensus message from {msg.sender.bare()} without "
+                    + "timestamp."
+                )
+                self.agent.logger.exception(error_msg)
                 raise ValueError(error_msg)
 
             seconds_since_message_sent = (
@@ -41,12 +44,15 @@ class CyclicConsensusReceiverBehaviour(CyclicBehaviour):
 
             if seconds_since_message_sent.total_seconds() <= max_seconds_pre_consensus:
                 self.agent.logger.info(
-                    f"[{self.agent.algorithm_iterations}] Consensus message accepted in ReceiverBehaviour with time elapsed {seconds_since_message_sent.total_seconds():.2f}"
+                    f"[{self.agent.algorithm_iterations}] Consensus message accepted in ReceiverBehaviour with time "
+                    + f"elapsed {seconds_since_message_sent.total_seconds():.2f}"
                 )
                 self.agent.put_to_consensus_transmission_queue(
                     consensus_transmission=consensus_tr
                 )
             else:
                 self.agent.logger.info(
-                    f"[{self.agent.algorithm_iterations}] Consensus message discarted in ReceiverBehaviour because time elapsed is {seconds_since_message_sent.total_seconds():.2f} and maximum is {max_seconds_pre_consensus:.2f}"
+                    f"[{self.agent.algorithm_iterations}] Consensus message discarted in ReceiverBehaviour because time"
+                    + f" elapsed is {seconds_since_message_sent.total_seconds():.2f} and maximum is "
+                    + f"{max_seconds_pre_consensus:.2f}"
                 )
