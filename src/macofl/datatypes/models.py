@@ -2,9 +2,10 @@ import codecs
 import copy
 import pickle
 from datetime import datetime, timezone
-from typing import Optional, OrderedDict
+from typing import Callable, Optional, OrderedDict
 
 import torch
+from aioxmpp import JID
 from torch import Tensor, nn
 from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
@@ -62,53 +63,69 @@ class ModelManager:
     ) -> None:
         self.model.load_state_dict(state_dict=new_weights_and_biases)
 
-    def train(self, epochs: Optional[int] = None) -> ModelMetrics:
+    def train(
+        self,
+        epochs: Optional[int] = None,
+        train_logger: Optional[Callable[[int, ModelMetrics, JID, int], None]] = None,
+        agent_jid: Optional[JID] = None,
+        algorithm_iteration: Optional[int] = None,
+    ) -> list[ModelMetrics]:
         """
         Updates the model by training on the training dataset.
         """
+        self.pretrain_state = copy.deepcopy(self.model.state_dict())
         self.__training = True
         if epochs is None:
             epochs = self.training_epochs
 
-        self.pretrain_state = copy.deepcopy(self.model.state_dict())
-        init_time_z = datetime.now(tz=timezone.utc)
+        metrics: list[ModelMetrics] = []
 
         # Training loop
-        for _ in range(epochs):
-            self.model.train()
-            total_loss: float = 0.0
-            correct: int = 0
-            total_samples: int = 0
+        try:
+            for epoch in range(epochs):
+                self.model.train()
+                total_loss: float = 0.0
+                correct: int = 0
+                total_samples: int = 0
 
-            images: Tensor
-            labels: Tensor
-            outputs: Tensor
-            loss: Tensor
-            predicted: Tensor
+                images: Tensor
+                labels: Tensor
+                outputs: Tensor
+                loss: Tensor
+                predicted: Tensor
 
-            for images, labels in self.dataloaders.train:
-                images, labels = images.to(self.device), labels.to(self.device)
-                self.optimizer.zero_grad()
-                outputs = self.model(images)
-                loss = self.criterion(outputs, labels)
-                loss.backward()
-                self.optimizer.step()
-                total_loss += loss.item()
-                _, predicted = torch.max(outputs.data, 1)
-                total_samples += labels.size(0)
-                correct += int((predicted == labels).sum().item())
+                init_time_z = datetime.now(tz=timezone.utc)
+                for images, labels in self.dataloaders.train:
+                    images, labels = images.to(self.device), labels.to(self.device)
+                    self.optimizer.zero_grad()
+                    outputs = self.model(images)
+                    loss = self.criterion(outputs, labels)
+                    loss.backward()
+                    self.optimizer.step()
+                    total_loss += loss.item()
+                    _, predicted = torch.max(outputs.data, 1)
+                    total_samples += labels.size(0)
+                    correct += int((predicted == labels).sum().item())
 
-        self.__training = False
-        end_time_z: datetime = datetime.now(tz=timezone.utc)
-        accuracy: float = correct / total_samples
-        resulting_loss: float = total_loss / len(self.dataloaders.train)
-        metrics: ModelMetrics = ModelMetrics(
-            accuracy=accuracy,
-            loss=resulting_loss,
-            start_time_z=init_time_z,
-            end_time_z=end_time_z,
-        )
-        return metrics
+                epoch_metric: ModelMetrics = ModelMetrics(
+                    accuracy=(correct / total_samples),
+                    loss=(total_loss / len(self.dataloaders.train)),
+                    start_time_z=init_time_z,
+                    end_time_z=datetime.now(tz=timezone.utc),
+                )
+                metrics.append(epoch_metric)
+                if (
+                    train_logger is not None
+                    and agent_jid is not None
+                    and algorithm_iteration is not None
+                ):
+                    train_logger(
+                        epoch + 1, epoch_metric, agent_jid, algorithm_iteration
+                    )
+            return metrics
+
+        finally:
+            self.__training = False
 
     def _inference(self, dataloader: DataLoader) -> ModelMetrics:
         """

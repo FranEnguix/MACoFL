@@ -6,7 +6,7 @@ from pathlib import Path
 from .algorithm import AlgorithmLogManager
 from .general import GeneralLogManager
 from .message import MessageLogManager
-from .nn import NnLogManager
+from .nn import NnInferenceLogManager, NnTrainLogManager
 
 
 def setup_loggers(
@@ -29,7 +29,12 @@ def setup_loggers(
     AlgorithmLogManager(level=csv_level).setup(
         folder_name=log_folder, file_name="algorithm.csv"
     )
-    NnLogManager(level=csv_level).setup(folder_name=log_folder, file_name="nn.csv")
+    NnInferenceLogManager(level=csv_level).setup(
+        folder_name=log_folder, file_name="nn_inference.csv"
+    )
+    NnTrainLogManager(level=csv_level).setup(
+        folder_name=log_folder, file_name="nn_train.csv"
+    )
     MessageLogManager(level=csv_level).setup(
         folder_name=log_folder, file_name="message.csv"
     )

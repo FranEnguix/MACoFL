@@ -13,7 +13,7 @@ from ...datatypes.consensus_transmission import ConsensusTransmission
 from ...datatypes.models import ModelManager
 from ...log.algorithm import AlgorithmLogManager
 from ...log.message import MessageLogManager
-from ...log.nn import NnLogManager
+from ...log.nn import NnInferenceLogManager, NnTrainLogManager
 from ..base import AgentNodeBase
 
 
@@ -43,7 +43,8 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         self.consensus_transmissions: Queue[ConsensusTransmission] = Queue()
         self.message_logger = MessageLogManager(extra_logger_name=extra_name)
         self.algorithm_logger = AlgorithmLogManager(extra_logger_name=extra_name)
-        self.nn_logger = NnLogManager(extra_logger_name=extra_name)
+        self.nn_train_logger = NnTrainLogManager(extra_logger_name=extra_name)
+        self.nn_inference_logger = NnInferenceLogManager(extra_logger_name=extra_name)
         super().__init__(
             jid,
             password,

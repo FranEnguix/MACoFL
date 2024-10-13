@@ -5,14 +5,15 @@ from typing import Optional
 from aioxmpp import JID
 from spade.template import Template
 
+from ..datatypes.metrics import ModelMetrics
 from .csv import CsvLogManager
 
 
-class NnLogManager(CsvLogManager):
+class NnInferenceLogManager(CsvLogManager):
 
     def __init__(
         self,
-        base_logger_name="rf.nn",
+        base_logger_name="rf.nn.inference",
         extra_logger_name=None,
         level=logging.DEBUG,
         datetime_format="%Y-%m-%dT%H:%M:%S.%fZ",
@@ -32,19 +33,22 @@ class NnLogManager(CsvLogManager):
 
     @staticmethod
     def get_header() -> str:
-        return "log_timestamp,log_name,iteration_number,timestamp,agent,seconds_to_complete,training_accuracy,training_loss,test_accuracy,test_loss"
+        return "log_timestamp,log_name,iteration_number,timestamp,agent,seconds_to_complete,epochs,mean_training_accuracy,mean_training_loss,validation_accuracy,validation_loss,test_accuracy,test_loss"
 
     @staticmethod
     def get_template() -> Template:
-        return Template(metadata={"rf.observer.log": "nn"})
+        return Template(metadata={"rf.observer.log": "nn.inference"})
 
     def log(
         self,
         iteration_id: int,
         agent: str | JID,
         seconds: float,
-        training_accuracy: float,
-        training_loss: float,
+        epochs: int,
+        mean_training_accuracy: float,
+        mean_training_loss: float,
+        validation_accuracy: float,
+        validation_loss: float,
         test_accuracy: float,
         test_loss: float,
         timestamp: Optional[datetime] = None,
@@ -60,10 +64,91 @@ class NnLogManager(CsvLogManager):
                 dt_str,
                 agent,
                 str(seconds),
-                str(training_accuracy),
-                str(training_loss),
+                str(epochs),
+                str(mean_training_accuracy),
+                str(mean_training_loss),
+                str(validation_accuracy),
+                str(validation_loss),
                 str(test_accuracy),
                 str(test_loss),
             ]
         )
         self.logger.log(level=lvl, msg=msg)
+
+
+class NnTrainLogManager(CsvLogManager):
+
+    def __init__(
+        self,
+        base_logger_name="rf.nn.train",
+        extra_logger_name=None,
+        level=logging.DEBUG,
+        datetime_format="%Y-%m-%dT%H:%M:%S.%fZ",
+        mode="a",
+        encoding=None,
+        delay=False,
+    ):
+        super().__init__(
+            base_logger_name,
+            extra_logger_name,
+            level,
+            datetime_format,
+            mode,
+            encoding,
+            delay,
+        )
+
+    @staticmethod
+    def get_header() -> str:
+        return "log_timestamp,log_name,iteration_number,start_timestamp,agent,seconds_to_complete,epoch,accuracy,loss"
+
+    @staticmethod
+    def get_template() -> Template:
+        return Template(metadata={"rf.observer.log": "nn.train"})
+
+    def log(
+        self,
+        iteration_id: int,
+        agent: str | JID,
+        seconds: float,
+        epoch: int,
+        accuracy: float,
+        loss: float,
+        start_timestamp: Optional[datetime] = None,
+        level: Optional[int] = logging.DEBUG,
+    ) -> None:
+        lvl = self.level if level is None else level
+        dt = (
+            datetime.now(tz=timezone.utc)
+            if start_timestamp is None
+            else start_timestamp
+        )
+        dt_str = dt.strftime(self.datetime_format)
+        agent = str(agent.bare()) if isinstance(agent, JID) else agent
+        msg = ",".join(
+            [
+                str(iteration_id),
+                dt_str,
+                agent,
+                str(seconds),
+                str(epoch),
+                str(accuracy),
+                str(loss),
+            ]
+        )
+        self.logger.log(level=lvl, msg=msg)
+
+    def log_train_epoch(
+        self, epoch: int, train: ModelMetrics, agent_jid: JID, algorithm_iteration: int
+    ) -> None:
+        if train.start_time_z is not None and train.end_time_z is not None:
+            time = train.end_time_z - train.start_time_z
+            self.log(
+                iteration_id=algorithm_iteration,
+                agent=agent_jid,
+                seconds=time.total_seconds(),
+                epoch=epoch,
+                accuracy=train.accuracy,
+                loss=train.loss,
+                start_timestamp=train.start_time_z,
+            )

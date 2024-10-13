@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch import nn
 from torch.optim import Adam
@@ -30,7 +31,11 @@ def test_neural_network() -> None:
     training_metrics = model.train()
     validation_metrics = model.inference()
     test_metrics = model.test_inference()
-    print(f"Training metrics: {training_metrics.accuracy} - {training_metrics.loss}")
+    mean_accuracy = np.mean([m.accuracy for m in training_metrics])
+    mean_loss = np.mean([m.loss for m in training_metrics])
+    print(
+        f"Training metrics in {len(training_metrics)} epochs: {mean_accuracy} - {mean_loss}"
+    )
     print(
         f"Validation metrics: {validation_metrics.accuracy} - {validation_metrics.loss}"
     )
