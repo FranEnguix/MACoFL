@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 from spade.behaviour import FSMBehaviour
 
-from .receive import ConsensusReceiverState
+from ..premiofl.consensus import ConsensusState
 from .send import SendState
 from .train import TrainAndApplyConsensusState
 
@@ -16,7 +16,7 @@ class AcolFsmBehaviour(FSMBehaviour):
         self.agent: PremioFlAgent
         self.train_state = TrainAndApplyConsensusState()
         self.send_state = SendState()
-        self.receive_state = ConsensusReceiverState()
+        self.receive_state = ConsensusState()
         super().__init__()
 
     def setup(self) -> None:

@@ -6,16 +6,22 @@ from macofl.datatypes.consensus import Consensus
 
 
 def test_consensus_update_tensors():
+    max_order = 2
+    epsilon_margin = 0.05
+
+    # Calculate epsilon to know the expected result
+    epsilon = (1 / max_order) - epsilon_margin
+
     # Two input tensors of 3x3: one filled with zeros, the other filled with tens
     tensor_zeros = torch.zeros((3, 3))
     tensor_tens = torch.full((3, 3), 10.0)
 
     # Expected output after applying consensus
-    expected_tensor = torch.full((3, 3), 5.0)
+    expected_tensor = torch.full((3, 3), (1 - epsilon) * 10)
 
     # Apply the consensus update
     consensuated_tensor = Consensus.consensus_update_to_tensors(
-        tensor_zeros, tensor_tens, max_order=2
+        tensor_zeros, tensor_tens, max_order=max_order, epsilon_margin=epsilon_margin
     )
 
     # Check that the output is a tensor of fives
@@ -25,7 +31,12 @@ def test_consensus_update_tensors():
 
 
 def test_consensus_update_models():
-    consensus = Consensus(max_order=2, max_seconds_to_accept_pre_consensus=10)
+    max_order = 2
+    epsilon_margin = 0.05
+
+    # Calculate epsilon to know the expected result
+    epsilon = (1 / max_order) - epsilon_margin
+
     # Define the state dictionaries of two models with tensors of zeros and tens
     model_state_a = {"weight": torch.zeros((3, 3)), "bias": torch.zeros((3,))}
     model_state_b = {"weight": torch.full((3, 3), 10.0), "bias": torch.full((3,), 10.0)}
@@ -34,21 +45,23 @@ def test_consensus_update_models():
 
     # Expected output after applying consensus
     expected_model_state = {
-        "weight": torch.full((3, 3), 5.0),
-        "bias": torch.full((3,), 5.0),
+        "weight": torch.full((3, 3), 10.0 * (1 - epsilon)),
+        "bias": torch.full((3,), 10.0 * (1 - epsilon)),
     }
 
     # Apply the consensus algorithm
-    consensuated_state_dict = consensus.apply_consensus(
-        model_state_a, model_state_b, max_order=2
+    consensuated_state_dict = Consensus.apply_consensus(
+        model_state_a, model_state_b, max_order=max_order, epsilon_margin=epsilon_margin
     )
 
     # Check that both 'weight' and 'bias' are correct
     assert torch.allclose(
-        consensuated_state_dict["weight"], expected_model_state["weight"]
+        consensuated_state_dict["weight"],
+        expected_model_state["weight"],
     ), f"Expected weight tensor of 5s but got {consensuated_state_dict['weight']}"
     assert torch.allclose(
-        consensuated_state_dict["bias"], expected_model_state["bias"]
+        consensuated_state_dict["bias"],
+        expected_model_state["bias"],
     ), f"Expected bias tensor of 5s but got {consensuated_state_dict['bias']}"
 
     # Check that initial model is not modified
@@ -58,7 +71,9 @@ def test_consensus_update_models():
 
 
 def test_apply_consensus_algorithm():
-    consensus = Consensus(max_order=2, max_seconds_to_accept_pre_consensus=10)
+    consensus = Consensus(
+        max_order=2, max_seconds_to_accept_pre_consensus=10, epsilon_margin=0.05
+    )
 
     # Define the models
     agent_model = {"weight": torch.zeros((3, 3)), "bias": torch.zeros((3,))}
@@ -81,8 +96,12 @@ def test_apply_consensus_algorithm():
 
     # Check that both 'weight' and 'bias' are correct
     assert torch.allclose(
-        agent_model["weight"], expected_model_state["weight"]
+        agent_model["weight"],
+        expected_model_state["weight"],
+        atol=consensus.epsilon_margin,
     ), f"Expected weight tensor of 5s but got {agent_model['weight']}"
     assert torch.allclose(
-        agent_model["bias"], expected_model_state["bias"]
+        agent_model["bias"],
+        expected_model_state["bias"],
+        atol=consensus.epsilon_margin,
     ), f"Expected bias tensor of 5s but got {agent_model['bias']}"

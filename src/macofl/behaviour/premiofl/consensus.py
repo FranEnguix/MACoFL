@@ -7,12 +7,12 @@ from ...datatypes.consensus_transmission import ConsensusTransmission
 from ...message.message import RfMessage
 
 if TYPE_CHECKING:
-    from ...agent.premiofl.acol import AcolAgent
+    from ...agent.premiofl.premiofl import PremioFlAgent
 
 
-class ConsensusReceiverState(State):
+class ConsensusState(State):
     def __init__(self) -> None:
-        self.agent: AcolAgent
+        self.agent: PremioFlAgent
         super().__init__()
 
     async def run(self) -> None:
@@ -31,7 +31,8 @@ class ConsensusReceiverState(State):
                     consensus_transmission=ct, send_model_during_consensus=False
                 )
                 self.agent.logger.info(
-                    f"[{self.agent.algorithm_iterations}] Consensus received in ReceiverState from {ct.sender.localpart} and consensus applied with neighbours: {[ct.sender.localpart for ct in cts]}."
+                    f"[{self.agent.algorithm_iterations}] Consensus received in ReceiverState from {ct.sender.localpart} "
+                    + f"and consensus applied with neighbours: {[ct.sender.localpart for ct in cts]}."
                 )
                 self.agent.message_logger.log(
                     iteration_id=self.agent.algorithm_iterations,
@@ -43,9 +44,10 @@ class ConsensusReceiverState(State):
                 self.set_next_state("train")
             elif RfMessage.is_multipart_and_not_yet_completed(message=msg):
                 self.agent.logger.debug(
-                    f"[{self.agent.algorithm_iterations}] Consensus received in ReceiverState from {msg.sender.localpart} and waiting to rebuild message to apply consensus."
+                    f"[{self.agent.algorithm_iterations}] Consensus received in ReceiverState from {msg.sender.localpart} "
+                    + "and waiting to rebuild message to apply consensus."
                 )
-                self.set_next_state("receive")
+                self.set_next_state("consensus")
         except Exception as e:
             self.agent.logger.exception(e)
             traceback.print_exc()
