@@ -19,6 +19,7 @@ class ConsensusTransmission:
 
     model: OrderedDict[str, Tensor]
     sender: JID
+    request_reply: bool
     sent_time_z: Optional[datetime] = None
     received_time_z: Optional[datetime] = None
     processed_start_time_z: Optional[datetime] = None
@@ -35,6 +36,7 @@ class ConsensusTransmission:
         content: dict[str, Any] = {}
         base64_model = ModelManager.export_weights_and_biases(self.model)
         content["model"] = base64_model
+        content["request_reply"] = self.request_reply
         sent_time_z = (
             datetime.now(tz=timezone.utc)
             if self.sent_time_z is None
@@ -48,6 +50,7 @@ class ConsensusTransmission:
     def from_message(message: Message) -> "ConsensusTransmission":
         content: dict[str, Any] = json.loads(message.body)
         base64_model: str = content["model"]
+        request_reply: bool = bool(content["request_reply"])
         model = ModelManager.import_weights_and_biases(base64_model)
         sent_time_z: datetime = datetime.strptime(
             content["sent_time_z"], "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -70,6 +73,7 @@ class ConsensusTransmission:
         return ConsensusTransmission(
             model=model,
             sender=message.sender,
+            request_reply=request_reply,
             sent_time_z=sent_time_z,
             received_time_z=received_time_z,
             processed_start_time_z=processed_start_time_z,
@@ -80,6 +84,7 @@ class ConsensusTransmission:
         content: dict[str, Any] = {}
         base64_model = ModelManager.export_weights_and_biases(self.model)
         content["model"] = base64_model
+        content["request_reply"] = self.request_reply
         content["sender"] = str(self.sender)
         if self.sent_time_z is not None:
             content["sent_time_z"] = self.sent_time_z.strftime("%Y-%m-%dT%H:%M:%S.%fZ")

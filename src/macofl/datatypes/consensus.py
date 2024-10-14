@@ -15,7 +15,7 @@ class Consensus:
     ) -> None:
         self.models_to_consensuate: Queue[OrderedDict[str, Tensor]] = Queue()
         self.max_order = max_order
-        self.max_seconds_to_accept_pre_consensus = max_seconds_to_accept_pre_consensus
+        self.max_seconds_to_accept_consensus = max_seconds_to_accept_pre_consensus
         self.epsilon_margin = epsilon_margin
 
     def apply_all_consensus(

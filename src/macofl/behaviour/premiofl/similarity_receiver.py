@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from aioxmpp import JID
 from spade.behaviour import CyclicBehaviour
 
 from ...message.message import RfMessage
@@ -17,7 +18,7 @@ class SimilarityReceiverBehaviour(CyclicBehaviour):
         super().__init__()
 
     async def run(self) -> None:
-        timeout = 2  # TODO parametrizar
+        timeout = 1  # TODO parametrizar
         msg = await self.agent.receive(self, timeout=timeout)
         if (
             msg
@@ -36,7 +37,7 @@ class SimilarityReceiverBehaviour(CyclicBehaviour):
                 raise ValueError(error_msg)
 
             self.agent.similarity_manager.update_similarity_vector(
-                uuid4=msg.thread, neighbour=msg.sender, vector=vector
+                neighbour=msg.sender, vector=vector
             )
 
             seconds_since_message_sent = vector.received_time_z - vector.sent_time_z
@@ -45,3 +46,28 @@ class SimilarityReceiverBehaviour(CyclicBehaviour):
                 + f"{msg.sender.bare()} in SimilarityReceiverBehaviour with time elapsed "
                 + f"{seconds_since_message_sent.total_seconds():.2f}"
             )
+
+            reply_vector = self.agent.similarity_manager.get_own_similarity_vector()
+            reply_vector.owner = self.agent.jid
+            await self.send_similarity_vector(
+                thread=msg.thread, vector=reply_vector, neighbour=msg.sender
+            )
+
+    async def send_similarity_vector(
+        self,
+        thread: str,
+        vector: SimilarityVector,
+        neighbour: JID,
+    ) -> None:
+        metadata = {"rf.conversation": "similarity"}
+        await self.agent.send_similarity_vector(
+            neighbour=neighbour,
+            vector=vector,
+            thread=thread,
+            metadata=metadata,
+            behaviour=self,
+        )
+        self.agent.logger.debug(
+            f"[{self.agent.algorithm_iterations}] Sent to {neighbour.localpart} the vector: {vector.to_message().body} "
+            + f"with thread {thread}."
+        )

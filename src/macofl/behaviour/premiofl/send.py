@@ -63,6 +63,7 @@ class SendState(State):
         metadata = {"rf.conversation": "layers"}
         await self.agent.send_local_layers(
             neighbour=neighbour,
+            request_reply=True,
             layers=layers,
             thread=thread,
             metadata=metadata,
@@ -77,13 +78,11 @@ class SendState(State):
     ) -> None:
         vector = self.agent.similarity_manager.get_own_similarity_vector()
         vector.owner = self.agent.jid
+        self.agent.similarity_manager.waiting_responses = neighbours
         for neighbour in neighbours:
             await self.send_similarity_vector(
                 uuid4=thread, vector=vector, neighbour=neighbour
             )
-        pending_agents = await self.agent.similarity_manager.wait_similarity_vectors(
-            uuid4=thread, timeout=600
-        )
 
     async def send_similarity_vector(
         self,

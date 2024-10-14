@@ -183,6 +183,12 @@ class ModelManager:
         """
         return self._inference(dataloader=self.dataloaders.test)
 
+    def get_layers(self, layers: list[str]) -> OrderedDict[str, Tensor]:
+        part_of_model: OrderedDict[str, Tensor] = OrderedDict()
+        for layer in layers:
+            part_of_model[layer] = self.model.state_dict()[layer]
+        return part_of_model
+
     @staticmethod
     def export_weights_and_biases(model: OrderedDict[str, Tensor]) -> str:
         return codecs.encode(pickle.dumps(model), encoding="base64").decode(

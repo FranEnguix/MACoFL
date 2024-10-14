@@ -14,6 +14,7 @@ class SimilarityVector:
         str, float
     ]  # str is the name of the layer and float is the similarity coefficient
     owner: Optional[JID] = None
+    algorithm_iteration: Optional[int] = None
     sent_time_z: Optional[datetime] = None
     received_time_z: Optional[datetime] = None
 
@@ -21,6 +22,7 @@ class SimilarityVector:
         msg = Message() if message is None else copy.deepcopy(message)
         content: dict[str, Any] = {}
         content["vector"] = json.dumps(self.vector)
+        content["algorithm_iteration"] = json.dumps(self.algorithm_iteration)
         sent_time_z = (
             datetime.now(tz=timezone.utc)
             if self.sent_time_z is None
@@ -34,6 +36,7 @@ class SimilarityVector:
     def from_message(message: Message) -> "SimilarityVector":
         content: dict[str, Any] = json.loads(message.body)
         vector: OrderedDict[str, float] = content["vector"]
+        algorithm_iteration: int = int(content["algorithm_iteration"])
         sent_time_z: datetime = datetime.strptime(
             content["sent_time_z"], "%Y-%m-%dT%H:%M:%S.%fZ"
         ).replace(tzinfo=timezone.utc)
@@ -45,6 +48,7 @@ class SimilarityVector:
         return SimilarityVector(
             vector=vector,
             owner=message.sender,
+            algorithm_iteration=algorithm_iteration,
             sent_time_z=sent_time_z,
             received_time_z=received_time_z,
         )

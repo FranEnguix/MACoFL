@@ -24,56 +24,45 @@ class SimilarityManager:
         #     Getting a list of keys via keys().
         self.model_manager = model_manager
         self.function = function
-        self.similarity_vectors: dict[str, dict[JID, SimilarityVector | None]] = (
+        self.waiting_responses: list[JID] = []
+        self.similarity_vectors: dict[JID, SimilarityVector | None] = (
             {}
         )  # the str is the UUID4 (or thread) and dict[JID, SimilarityVector | None] are the neighbours' vectors
-
-    def add_waiting_response_flag(self, uuid4: str, neighbour: JID) -> None:
-        if uuid4 not in self.similarity_vectors:
-            self.similarity_vectors[uuid4] = {}
-        self.similarity_vectors[uuid4][neighbour] = None
 
     def get_own_similarity_vector(self) -> SimilarityVector:
         if self.function is None:
             raise ValueError(
                 "The agent must have a function to compute the similarity vector."
             )
+        layer2 = (
+            self.model_manager.pretrain_state
+            if self.model_manager.is_training()
+            else self.model_manager.model.state_dict()
+        )
         vector = self.function.get_similarity_vector(
             layers1=self.model_manager.initial_state,
-            layers2=self.model_manager.model.state_dict(),
+            layers2=layer2,
         )
         vector.sent_time_z = datetime.now(tz=timezone.utc)
         return vector
 
-    async def wait_similarity_vectors(
-        self, uuid4: str, timeout: Optional[float] = 10
-    ) -> list[JID]:
-        thread = self.similarity_vectors[uuid4]
-        waiting = [neighbour for neighbour, vector in thread.items() if not vector]
+    async def wait_similarity_vectors(self, timeout: Optional[float] = 10) -> None:
         start_time_z = datetime.now(tz=timezone.utc)
         stop_time_reached = False
-        while waiting and not stop_time_reached:
+        while self.waiting_responses and not stop_time_reached:
             await asyncio.sleep(delay=2)
-            waiting = [neighbour for neighbour, vector in thread.items() if not vector]
             if timeout:
                 stop_time_z = datetime.now(tz=timezone.utc) + timedelta(seconds=timeout)
                 stop_time_reached = stop_time_z >= start_time_z
-        return waiting
-
-    def i_have_to_answer_thread(self, uuid: str) -> bool:
-        return not uuid in self.similarity_vectors
 
     def update_similarity_vector(
-        self, uuid4: str, neighbour: JID, vector: SimilarityVector
+        self, neighbour: JID, vector: SimilarityVector
     ) -> None:
-        if uuid4 not in self.similarity_vectors:
-            self.similarity_vectors[uuid4] = {}
-        self.similarity_vectors[uuid4][neighbour] = vector
+        if neighbour in self.waiting_responses:
+            self.waiting_responses.remove(neighbour)
+        self.similarity_vectors[neighbour] = vector
 
-    def get_vector(self, uuid4: str, neighbour: JID) -> SimilarityVector | None:
-        if (
-            uuid4 in self.similarity_vectors
-            and neighbour in self.similarity_vectors[uuid4]
-        ):
-            return self.similarity_vectors[uuid4][neighbour]
+    def get_vector(self, neighbour: JID) -> SimilarityVector | None:
+        if neighbour in self.similarity_vectors:
+            return self.similarity_vectors[neighbour]
         return None

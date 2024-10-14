@@ -148,6 +148,7 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
     async def send_similarity_vector(
         self,
         neighbour: JID,
+        request_reply: bool,  # TODO
         vector: SimilarityVector,
         thread: Optional[str] = None,
         metadata: Optional[dict[str, str]] = None,
@@ -165,21 +166,24 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
     async def send_local_layers(
         self,
         neighbour: JID,
+        request_reply: bool,
         layers: OrderedDict[str, Tensor],
         thread: Optional[str] = None,
         metadata: Optional[dict[str, str]] = None,
         behaviour: Optional[CyclicBehaviour] = None,
     ) -> None:
         ct = ConsensusTransmission(
-            model=layers,
-            sender=self.jid,
+            model=layers, sender=self.jid, request_reply=request_reply
         )
         msg = ct.to_message()
         msg.sender = str(self.jid.bare())
         msg.to = str(neighbour.bare())
         msg.thread = thread
         msg.metadata = metadata
-        await self.__send_message(message=msg, behaviour=behaviour, log_tag="-LAYERS")
+        tag = "-REQREPLY" if request_reply else ""
+        await self.__send_message(
+            message=msg, behaviour=behaviour, log_tag=f"-LAYERS{tag}"
+        )
 
     async def __send_message(
         self, message: Message, behaviour: CyclicBehaviour, log_tag: str = ""
