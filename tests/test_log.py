@@ -30,7 +30,7 @@ def test_fill_logs():
     logger = MessageLogManager(extra_logger_name="test")
     for i in range(15):
         logger.log(
-            iteration_id=100 + i, sender=sender, to=to, msg_type="SEND", size=250_000
+            current_round=100 + i, sender=sender, to=to, msg_type="SEND", size=250_000
         )
     general_logger.info(f"Handlers: {logger.logger.handlers}")
     general_logger.info(f"Effective Level: {logger.logger.getEffectiveLevel()}")
@@ -67,6 +67,6 @@ def test_fill_logs():
 
     logger = AlgorithmLogManager(extra_logger_name="algorithm")
     for i in range(15):
-        logger.log(iteration_id=100 + i, agent=sender, seconds=random.random() * 100)
+        logger.log(current_round=100 + i, agent=sender, seconds=random.random() * 100)
     general_logger.info(f"Handlers: {logger.logger.handlers}")
     general_logger.info(f"Effective Level: {logger.logger.getEffectiveLevel()}")

@@ -32,9 +32,7 @@ class MessageLogManager(CsvLogManager):
 
     @staticmethod
     def get_header() -> str:
-        return (
-            "log_timestamp,log_name,iteration_id,timestamp,sender,to,type,size,thread"
-        )
+        return "log_timestamp,log_name,algorithm_round,timestamp,sender,to,type,size,thread"
 
     @staticmethod
     def get_template() -> Template:
@@ -42,7 +40,7 @@ class MessageLogManager(CsvLogManager):
 
     def log(
         self,
-        iteration_id: int,
+        current_round: int,
         sender: str | JID,
         to: str | JID,
         msg_type: str,
@@ -58,6 +56,6 @@ class MessageLogManager(CsvLogManager):
         to = str(to.bare()) if isinstance(to, JID) else to
         thread = "" if thread is None else thread
         msg = ",".join(
-            [str(iteration_id), dt_str, sender, to, msg_type, str(size), thread]
+            [str(current_round), dt_str, sender, to, msg_type, str(size), thread]
         )
         self.logger.log(level=lvl, msg=msg)

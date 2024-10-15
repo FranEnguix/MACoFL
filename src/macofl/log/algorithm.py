@@ -19,7 +19,7 @@ class AlgorithmLogManager(CsvLogManager):
         mode="a",
         encoding=None,
         delay=False,
-    ):
+    ) -> None:
         super().__init__(
             base_logger_name,
             extra_logger_name,
@@ -29,10 +29,13 @@ class AlgorithmLogManager(CsvLogManager):
             encoding,
             delay,
         )
+        self.__chrono: datetime = datetime.now(tz=timezone.utc)
 
     @staticmethod
     def get_header() -> str:
-        return "log_timestamp,log_name,iteration_number,timestamp,agent,seconds_to_complete"
+        return (
+            "log_timestamp,log_name,algorithm_round,timestamp,agent,seconds_to_complete"
+        )
 
     @staticmethod
     def get_template() -> Template:
@@ -40,7 +43,7 @@ class AlgorithmLogManager(CsvLogManager):
 
     def log(
         self,
-        iteration_id: int,
+        current_round: int,
         agent: JID,
         seconds: float,
         timestamp: Optional[datetime] = None,
@@ -52,10 +55,16 @@ class AlgorithmLogManager(CsvLogManager):
         agent = str(agent.bare()) if isinstance(agent, JID) else agent
         msg = ",".join(
             [
-                str(iteration_id),
+                str(current_round),
                 dt_str,
                 agent,
                 str(seconds),
             ]
         )
         self.logger.log(level=lvl, msg=msg)
+
+    def get_chrono_seconds(self) -> float:
+        return (datetime.now(tz=timezone.utc) - self.__chrono).total_seconds()
+
+    def restart_chrono(self) -> None:
+        self.__chrono = datetime.now(tz=timezone.utc)

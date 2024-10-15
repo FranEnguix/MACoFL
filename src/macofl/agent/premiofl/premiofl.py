@@ -235,7 +235,7 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
     ) -> None:
         await self.send(message=message, behaviour=behaviour)
         self.message_logger.log(
-            iteration_id=self.current_round,
+            current_round=self.current_round,
             sender=message.sender,
             to=message.to,
             msg_type=f"SEND{log_tag}",

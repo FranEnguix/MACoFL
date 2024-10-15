@@ -27,7 +27,7 @@ class LayerReceiverBehaviour(CyclicBehaviour):
             and not self.agent.are_max_iterations_reached()
         ):
             self.agent.message_logger.log(
-                iteration_id=self.agent.current_round,
+                current_round=self.agent.current_round,
                 sender=msg.sender,
                 to=msg.to,
                 msg_type="RECV-LAYERS",

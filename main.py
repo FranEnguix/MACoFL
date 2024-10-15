@@ -17,7 +17,7 @@ async def main() -> None:
     uuid4_enabled = True
     xmpp_domain = "localhost"
     max_message_size = 250_000  # do not be close to 262 144
-    number_of_agents = 8
+    number_of_agents = 2
     number_of_observers = 1
 
     uuid4 = str(uuid.uuid4()) if uuid4_enabled else ""
@@ -85,17 +85,23 @@ async def main() -> None:
         await asyncio.sleep(0.2)
         logger.info("Launcher initialized.")
 
-        logger.info("Waiting for coordinator...")
-        await spade.wait_until_finished(coordinator)
-        logger.info("Coordinator finished.")
+        # logger.info("Waiting for coordinator...")
+        # await spade.wait_until_finished(coordinator)
+        # logger.info("Coordinator finished.")
 
-        logger.info("Waiting for launcher...")
-        await spade.wait_until_finished(launcher)
-        logger.info("Launcher finished.")
+        # logger.info("Waiting for launcher...")
+        # await spade.wait_until_finished(launcher)
+        # logger.info("Launcher finished.")
 
-        logger.info("Waiting for agents...")
-        await spade.wait_until_finished(launcher.agents)
-        logger.info("Agents finished.")
+        # logger.info("Waiting for agents...")
+        # await spade.wait_until_finished(launcher.agents)
+        # logger.info("Agents finished.")
+
+        while launcher.is_alive() or any(ag.is_alive() for ag in launcher.agents):
+            await asyncio.sleep(5)
+
+    except KeyboardInterrupt as e:
+        raise e
 
     except Exception as e:
         logger.exception(e)

@@ -26,7 +26,7 @@ class SimilarityReceiverBehaviour(CyclicBehaviour):
             and not self.agent.are_max_iterations_reached()
         ):
             self.agent.message_logger.log(
-                iteration_id=self.agent.current_round,
+                current_round=self.agent.current_round,
                 sender=str(msg.sender.bare()),
                 to=str(msg.to.bare()),
                 msg_type="RECV-SIMILARITY",

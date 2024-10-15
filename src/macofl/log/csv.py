@@ -68,7 +68,7 @@ class CsvLogManager(object, metaclass=ABCMeta):
     @staticmethod
     @abstractmethod
     def get_header() -> str:
-        # return "log_timestamp,log_name,iteration_number,timestamp,sender,dest,type,size"
+        # return "log_timestamp,log_name,algorithm_round,timestamp,sender,dest,type,size"
         raise NotImplementedError
 
     @staticmethod

@@ -17,8 +17,10 @@ def setup_loggers(
 ) -> None:
     log_folder = Path(log_folder_path)
     if datetime_mark:
-        log_folder = log_folder / datetime.now(tz=timezone.utc).strftime(
-            "%Y_%m_%d_T_%H_%M_%S_%f_Z"
+        log_folder = (
+            log_folder
+            / datetime.now(tz=timezone.utc).strftime("%Y_%m_%d_T_%H_%M_%S_%f_Z")
+            / "raw"
         )
     else:
         log_folder = log_folder / str(uuid.uuid4()).replace("-", "_")

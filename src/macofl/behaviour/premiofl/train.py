@@ -16,6 +16,13 @@ class TrainAndApplyConsensusState(State):
         super().__init__()
 
     async def on_start(self) -> None:
+        if self.agent.current_round > 0:
+            self.agent.algorithm_logger.log(
+                current_round=self.agent.current_round,
+                agent=self.agent.jid.bare(),
+                seconds=self.agent.algorithm_logger.get_chrono_seconds(),
+            )
+        self.agent.algorithm_logger.restart_chrono()
         self.agent.current_round += 1
         if self.agent.are_max_iterations_reached():
             self.agent.logger.info(
