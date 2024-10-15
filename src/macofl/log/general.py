@@ -1,6 +1,24 @@
 import logging
+import re
 from pathlib import Path
 from typing import Optional
+
+
+class RemoveUuid4Filter(logging.Filter):
+    def __init__(self, name=""):
+        super().__init__(name)
+        self.uuid_regex = re.compile(
+            r"[a-z0-9]{8}-\b[a-z0-9]{4}-\b[a-z0-9]{4}-\b[a-z0-9]{4}-\b[a-z0-9]{12}"
+        )
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Remove the UUID portion
+        record.name = self.uuid_regex.sub(
+            "",
+            record.name.replace("rf.log.", "").replace("agent.", "").replace("_", ""),
+        )
+        record.msg = self.uuid_regex.sub("", record.msg.replace("_", ""))
+        return True
 
 
 class GeneralLogManager:
@@ -14,6 +32,9 @@ class GeneralLogManager:
         self.base_logger_name = base_logger_name
         self.extra_logger_name = extra_logger_name
         self.level = level
+        self.terminal_formatter = logging.Formatter(
+            "%(asctime)s, %(name)s: %(message)s", datefmt="%M:%S"
+        )
         self.formatter = logging.Formatter(
             "%(asctime)s, %(name)s, %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
@@ -47,11 +68,12 @@ class GeneralLogManager:
             # General agent log
             console_handler = logging.StreamHandler()
             console_handler.setLevel(self.level)
-            console_handler.setFormatter(self.formatter)
+            console_handler.setFormatter(self.terminal_formatter)
 
             file_handler = logging.FileHandler(log_path)
             file_handler.setLevel(self.level)
             file_handler.setFormatter(self.formatter)
+            file_handler.addFilter(RemoveUuid4Filter())
 
             # Attach handlers to the loggers for each agent category
             logger = logging.getLogger(self.base_logger_name)
@@ -64,6 +86,9 @@ class GeneralLogManager:
 
     def info(self, msg: object) -> None:
         self.logger.info(msg)
+
+    def warning(self, msg: object) -> None:
+        self.logger.warning(msg)
 
     def error(self, msg: object) -> None:
         self.logger.error(msg)

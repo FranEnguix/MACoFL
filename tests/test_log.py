@@ -38,7 +38,7 @@ def test_fill_logs():
     logger = NnTrainLogManager(extra_logger_name="test")
     for i in range(20):
         logger.log(
-            iteration_id=100,
+            current_round=100,
             agent=sender,
             seconds=random.random() * 10,
             epoch=i,
@@ -51,7 +51,7 @@ def test_fill_logs():
     logger = NnInferenceLogManager(extra_logger_name="test")
     for i in range(15):
         logger.log(
-            iteration_id=100 + i,
+            current_round=100 + i,
             agent=sender,
             seconds=random.random() * 100,
             epochs=15,

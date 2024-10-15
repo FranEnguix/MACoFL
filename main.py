@@ -8,7 +8,8 @@ import spade
 from aioxmpp import JID
 
 from macofl.agent import CoordinatorAgent, LauncherAgent, ObserverAgent
-from macofl.agent.premiofl import AcolAgent
+
+# from macofl.agent.premiofl import AcolAgent
 from macofl.log import GeneralLogManager, setup_loggers
 
 
@@ -16,7 +17,7 @@ async def main() -> None:
     uuid4_enabled = True
     xmpp_domain = "localhost"
     max_message_size = 250_000  # do not be close to 262 144
-    number_of_agents = 10
+    number_of_agents = 8
     number_of_observers = 1
 
     uuid4 = str(uuid.uuid4()) if uuid4_enabled else ""
@@ -45,7 +46,7 @@ async def main() -> None:
         coordinated_agents=initial_agents,
         verify_security=False,
     )
-    await asyncio.sleep(5)
+    await asyncio.sleep(0.2)
 
     for obs_jid in observer_jids:
         obs = ObserverAgent(
@@ -71,17 +72,17 @@ async def main() -> None:
         logger.info("Starting observers...")
         for observer in observers:
             await observer.start()
-        await asyncio.sleep(5)
+        await asyncio.sleep(0.2)
         logger.info("Observers initialized.")
 
         logger.info("Starting coordinator...")
         await coordinator.start()
-        await asyncio.sleep(5)
+        await asyncio.sleep(0.2)
         logger.info("Coordinator initialized.")
 
         logger.info("Initializing launcher...")
         await launcher.start()
-        await asyncio.sleep(5)
+        await asyncio.sleep(0.2)
         logger.info("Launcher initialized.")
 
         logger.info("Waiting for coordinator...")
@@ -116,5 +117,7 @@ if __name__ == "__main__":
     try:
         setup_loggers(general_level=logging.INFO)
         spade.run(main())
+    except KeyboardInterrupt:
+        pass
     except Exception:
         traceback.print_exc()

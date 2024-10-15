@@ -1,15 +1,14 @@
 import random
-from typing import OrderedDict
+from typing import Optional, OrderedDict
 
 from aioxmpp import JID
-from spade.template import Template
 from torch import Tensor
 
-from macofl.datatypes.consensus import Consensus
+from macofl.datatypes.consensus_manager import ConsensusManager
 from macofl.datatypes.models import ModelManager
 
-from ...behaviour.premiofl.fsm import AcolFsmBehaviour
-from ...behaviour.premiofl.layer_receiver import LayerReceiverBehaviour
+from ...similarity.similarity_manager import SimilarityManager
+from ...similarity.similarity_vector import SimilarityVector
 from .premiofl import PremioFlAgent
 
 
@@ -20,8 +19,9 @@ class AcolAgent(PremioFlAgent):
         jid: str,
         password: str,
         max_message_size: int,
-        consensus: Consensus,
+        consensus_manager: ConsensusManager,
         model_manager: ModelManager,
+        similarity_manager: SimilarityManager,
         observers: list[JID] | None = None,
         neighbours: list[JID] | None = None,
         coordinator: JID | None = None,
@@ -30,24 +30,23 @@ class AcolAgent(PremioFlAgent):
         web_port: int = 10000,
         verify_security: bool = False,
     ):
-        self.acol_fsm = AcolFsmBehaviour()
-        self.acol_cyclic_receiver = LayerReceiverBehaviour()
-        post_coordination_behaviours = [
-            (self.acol_fsm, None),
-            (
-                self.acol_cyclic_receiver,
-                Template(
-                    metadata={"rf.conversation": "consensus_send_to_cyclic_receive"}
-                ),
-            ),
-        ]
+        # self.acol_fsm = PremioFsmBehaviour()
+        # self.acol_cyclic_receiver = LayerReceiverBehaviour()
+        # post_coordination_behaviours = [
+        #     (self.acol_fsm, None),
+        #     (
+        #         self.acol_cyclic_receiver,
+        #         Template(metadata={"rf.conversation": "layers"}),
+        #     ),
+        # ]
         super().__init__(
             jid,
             password,
             max_message_size,
-            consensus,
+            consensus_manager,
             model_manager,
-            post_coordination_behaviours,
+            similarity_manager,
+            # post_coordination_behaviours,
             observers,
             neighbours,
             coordinator,
@@ -62,7 +61,10 @@ class AcolAgent(PremioFlAgent):
             return []
         return [random.choice(neighbours)]
 
-    def assign_layers(
-        self, neighbours: list[JID]
+    def _assign_layers(
+        self,
+        my_vector: Optional[SimilarityVector],
+        neighbours_vectors: dict[JID, SimilarityVector],
+        selected_neighbours: list[JID],
     ) -> dict[JID, OrderedDict[str, Tensor]]:
-        return {n: self.model_manager.model.state_dict() for n in neighbours}
+        return {n: self.model_manager.model.state_dict() for n in selected_neighbours}

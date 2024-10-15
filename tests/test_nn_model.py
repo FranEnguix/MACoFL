@@ -57,8 +57,8 @@ def test_random_neural_network() -> None:
 
 def test_model_to_base64() -> None:
     model = build_neural_network()
-    model_str = ModelManager.export_weights_and_biases(model.model.state_dict())
-    model_reconstruct = ModelManager.import_weights_and_biases(model_str)
+    model_str = ModelManager.export_layers(model.model.state_dict())
+    model_reconstruct = ModelManager.import_layers(model_str)
     for key in model.initial_state:
         assert key in model_reconstruct, f"Key '{key}' not in reconstruct."
         assert torch.allclose(

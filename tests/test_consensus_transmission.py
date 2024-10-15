@@ -10,7 +10,7 @@ from spade.message import Message
 from torch import nn
 
 from macofl.datatypes import ModelManager
-from macofl.datatypes.consensus_transmission import ConsensusTransmission
+from macofl.datatypes.consensus import Consensus
 
 from .test_nn_model import build_neural_network
 
@@ -25,11 +25,11 @@ class TestConsensusTransmission(unittest.TestCase):
         sender = JID.fromstr("sender@localhost")
         now = datetime.now(tz=timezone.utc)
 
-        consensus_transmission = ConsensusTransmission(
-            model=model_state, sender=sender, sent_time_z=now
+        consensus_transmission = Consensus(
+            layers=model_state, sender=sender, sent_time_z=now
         )
 
-        self.assertEqual(consensus_transmission.model, model_state)
+        self.assertEqual(consensus_transmission.layers, model_state)
         self.assertEqual(consensus_transmission.sender, sender)
         self.assertEqual(consensus_transmission.sent_time_z, now)
         self.assertIsNone(consensus_transmission.received_time_z)
@@ -43,8 +43,8 @@ class TestConsensusTransmission(unittest.TestCase):
         sender = JID.fromstr("sender@localhost")
         now = datetime.now(tz=timezone.utc)
 
-        consensus_transmission = ConsensusTransmission(
-            model=model_state, sender=sender, sent_time_z=now
+        consensus_transmission = Consensus(
+            layers=model_state, sender=sender, sent_time_z=now
         )
 
         message = consensus_transmission.to_message()
@@ -56,7 +56,7 @@ class TestConsensusTransmission(unittest.TestCase):
         content = json.loads(message.body)
 
         # Check that 'model' and 'sent_time_z' are in the content
-        self.assertIn("model", content)
+        self.assertIn("layers", content)
         self.assertIn("sent_time_z", content)
 
         # Verify that 'sent_time_z' is correctly formatted
@@ -74,19 +74,19 @@ class TestConsensusTransmission(unittest.TestCase):
         now = datetime.now(tz=timezone.utc)
 
         # Create a message
-        consensus_transmission = ConsensusTransmission(
-            model=model_state, sender=sender, sent_time_z=now
+        consensus_transmission = Consensus(
+            layers=model_state, sender=sender, sent_time_z=now
         )
         message = consensus_transmission.to_message()
         message.sender = str(sender.bare())  # Simulate sender
 
         # Deserialize from message
-        received_transmission = ConsensusTransmission.from_message(message)
+        received_transmission = Consensus.from_message(message)
 
         # Check that the fields are correctly set
         for key in model_state.keys():
             assert torch.allclose(
-                received_transmission.model[key], model_state.get(key)
+                received_transmission.layers[key], model_state.get(key)
             )
         self.assertEqual(received_transmission.sender, sender)
         self.assertEqual(
@@ -106,8 +106,8 @@ class TestConsensusTransmission(unittest.TestCase):
         sender = JID.fromstr("sender@localhost")
         now = datetime.now(tz=timezone.utc)
 
-        consensus_transmission = ConsensusTransmission(
-            model=model_state, sender=sender, sent_time_z=now
+        consensus_transmission = Consensus(
+            layers=model_state, sender=sender, sent_time_z=now
         )
 
         time.sleep(0.2)  # Pause to check if sent_time_z is not override in to_message()
@@ -117,12 +117,12 @@ class TestConsensusTransmission(unittest.TestCase):
 
         time.sleep(0.2)  # Simulate send time
 
-        received_transmission = ConsensusTransmission.from_message(message)
+        received_transmission = Consensus.from_message(message)
 
         # Since received_time_z will be different, we can compare the rest of the fields
         for key in model_state.keys():
             assert torch.allclose(
-                received_transmission.model[key], consensus_transmission.model[key]
+                received_transmission.layers[key], consensus_transmission.layers[key]
             )
         self.assertEqual(received_transmission.sender, consensus_transmission.sender)
         self.assertEqual(
@@ -145,8 +145,8 @@ class TestConsensusTransmission(unittest.TestCase):
         sender = JID.fromstr("sender@localhost")
         now = datetime.now(tz=timezone.utc)
 
-        consensus_transmission = ConsensusTransmission(
-            model=model_state,
+        consensus_transmission = Consensus(
+            layers=model_state,
             sender=sender,
             sent_time_z=now,
             received_time_z=now,
@@ -158,7 +158,7 @@ class TestConsensusTransmission(unittest.TestCase):
         content = json.loads(result_str)
 
         # Check that all fields are present
-        self.assertIn("model", content)
+        self.assertIn("layers", content)
         self.assertIn("sender", content)
         self.assertIn("sent_time_z", content)
         self.assertIn("received_time_z", content)
@@ -187,8 +187,8 @@ class TestConsensusTransmission(unittest.TestCase):
         model = nn.Linear(10, 5).state_dict()
 
         # With aware datetime
-        consensus_transmission_aware = ConsensusTransmission(
-            model=model, sender=sender, sent_time_z=aware_now
+        consensus_transmission_aware = Consensus(
+            layers=model, sender=sender, sent_time_z=aware_now
         )
 
         message_aware = consensus_transmission_aware.to_message()
@@ -197,16 +197,16 @@ class TestConsensusTransmission(unittest.TestCase):
         # With naive datetime (should handle or raise an error)
         with self.assertRaises(ValueError):
             # This should fail because the datetime is naive
-            ConsensusTransmission(model=model, sender=sender, sent_time_z=naive_now)
+            Consensus(layers=model, sender=sender, sent_time_z=naive_now)
 
     def test_build_consensus_transmission(
         self, sender: Optional[JID] = None, sent_time_z: Optional[datetime] = None
-    ) -> ConsensusTransmission:
+    ) -> Consensus:
         model: ModelManager = build_neural_network()
         sender = JID.fromstr("sender@localhost") if sender is None else sender
         now = datetime.now(tz=timezone.utc) if sent_time_z is None else sent_time_z
-        consensus_transmission = ConsensusTransmission(
-            model=model.initial_state, sender=sender, sent_time_z=now
+        consensus_transmission = Consensus(
+            layers=model.initial_state, sender=sender, sent_time_z=now
         )
         return consensus_transmission
 
@@ -221,8 +221,8 @@ class TestConsensusTransmission(unittest.TestCase):
         model = nn.Linear(10, 5).state_dict()
 
         # With aware datetime
-        consensus_transmission_aware = ConsensusTransmission(
-            model=model, sender=sender, sent_time_z=aware_now
+        consensus_transmission_aware = Consensus(
+            layers=model, sender=sender, sent_time_z=aware_now
         )
 
         message_aware = consensus_transmission_aware.to_message()
@@ -231,4 +231,4 @@ class TestConsensusTransmission(unittest.TestCase):
         # With naive datetime (should handle or raise an error)
         with self.assertRaises(ValueError):
             # This should fail because the datetime is naive
-            ConsensusTransmission(model=model, sender=sender, sent_time_z=naive_now)
+            Consensus(layers=model, sender=sender, sent_time_z=naive_now)

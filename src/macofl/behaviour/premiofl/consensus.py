@@ -1,12 +1,8 @@
-import traceback
-from typing import TYPE_CHECKING, Optional, OrderedDict
+from typing import TYPE_CHECKING
 
-from aioxmpp import JID
 from spade.behaviour import State
-from torch import Tensor
 
-from ...datatypes.consensus_transmission import ConsensusTransmission
-from ...message.message import RfMessage
+# from ...message.message import RfMessage
 
 if TYPE_CHECKING:
     from ...agent.premiofl.premiofl import PremioFlAgent
@@ -18,49 +14,49 @@ class ConsensusState(State):
         super().__init__()
 
     async def run(self) -> None:
-        try:
-            # Try to apply consensus
-            self.agent.logger.debug(
-                f"[{self.agent.algorithm_iterations}] Starting consensus..."
+        consensus_it_id = (
+            self.agent.consensus_manager.get_completed_iterations(
+                self.agent.current_round
             )
-            cts = await self.agent.apply_all_consensus_transmission()
-            if cts:
-                for ct in cts:
-                    if ct.request_reply:
-                        model = self.agent.model_manager.get_layers(
-                            layers=list(ct.model.keys())
-                        )
-                        await self.send_layers(neighbour=ct.sender, layers=model)
-
-                self.agent.logger.info(
-                    f"[{self.agent.algorithm_iterations}] Consensus completed in ConsensusState with neighbours: "
-                    + f"{[ct.sender.localpart for ct in cts]}."
-                )
-            else:
-                self.agent.logger.debug(
-                    f"[{self.agent.algorithm_iterations}] There are not consensus messages pending."
-                )
-            self.set_next_state("train")
-
-        except Exception as e:
-            self.agent.logger.exception(e)
-            traceback.print_exc()
-
-    async def send_layers(
-        self,
-        neighbour: JID,
-        layers: OrderedDict[str, Tensor],
-        thread: Optional[str] = None,
-    ) -> None:
-        metadata = {"rf.conversation": "layers"}
-        await self.agent.send_local_layers(
-            neighbour=neighbour,
-            request_reply=True,
-            layers=layers,
-            thread=thread,
-            metadata=metadata,
-            behaviour=self,
+            + 1
         )
         self.agent.logger.debug(
-            f"[{self.agent.algorithm_iterations}] Sent to {neighbour.localpart} the layers: {list(layers.keys())}."
+            f"[{self.agent.current_round}] Waiting for layers to apply consensus..."
         )
+        if await self.agent.consensus_manager.wait_receive_consensus():
+            self.agent.logger.info(
+                f"[{self.agent.current_round}] ({consensus_it_id}) All layers received."
+            )
+        else:
+            self.agent.logger.debug(
+                f"[{self.agent.current_round}] Receive consensus finished by timeout."
+            )
+        # Try to apply consensus
+        self.agent.logger.debug(f"[{self.agent.current_round}] Starting consensus...")
+        consensuateds = self.agent.consensus_manager.apply_all_consensus()
+        if consensuateds:
+            self.agent.logger.info(
+                f"[{self.agent.current_round}] ({consensus_it_id}) Consensus completed in ConsensusState "
+                + f"with neighbours: {[ct.sender.localpart for ct in consensuateds if ct.sender]}."
+            )
+        else:
+            self.agent.logger.debug(
+                f"[{self.agent.current_round}] There are not consensus messages pending to consensuate."
+            )
+
+    async def on_end(self):
+        it = self.agent.consensus_manager.add_one_completed_iteration(
+            algorithm_rounds=self.agent.current_round
+        )
+        if self.agent.consensus_manager.are_max_iterations_reached():
+            self.agent.logger.info(
+                f"[{self.agent.current_round}] Going to TrainState because max consensus iterations "
+                + f"reached: {it}/{self.agent.consensus_manager.max_iterations}."
+            )
+            self.set_next_state("train")
+        else:
+            self.agent.logger.info(
+                f"[{self.agent.current_round}] Going to CommunicationState... iterations: "
+                + f"{it}/{self.agent.consensus_manager.max_iterations}."
+            )
+            self.set_next_state("communication")

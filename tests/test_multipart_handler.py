@@ -54,7 +54,7 @@ def test_model_message_transmission() -> None:
     max_content_size = 250_000
 
     model = build_neural_network()
-    original_content = ModelManager.export_weights_and_biases(model.model.state_dict())
+    original_content = ModelManager.export_layers(model.model.state_dict())
 
     to = "dest"
     sender = "sender"
@@ -81,7 +81,7 @@ def test_model_message_transmission() -> None:
         result = mh_dest.rebuild_multipart(m)
 
     assert result is not None and result.body == original_content
-    model_reconstruct = ModelManager.import_weights_and_biases(result.body)
+    model_reconstruct = ModelManager.import_layers(result.body)
     for key in model.initial_state:
         assert key in model_reconstruct, f"Key '{key}' not in reconstruct."
         assert torch.allclose(

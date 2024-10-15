@@ -9,8 +9,11 @@ from spade.message import Message
 from spade.template import Template
 from torch import Tensor
 
+from ...behaviour.premiofl.fsm import PremioFsmBehaviour
+from ...behaviour.premiofl.layer_receiver import LayerReceiverBehaviour
+from ...behaviour.premiofl.similarity_receiver import SimilarityReceiverBehaviour
 from ...datatypes.consensus import Consensus
-from ...datatypes.consensus_transmission import ConsensusTransmission
+from ...datatypes.consensus_manager import ConsensusManager
 from ...datatypes.models import ModelManager
 from ...log.algorithm import AlgorithmLogManager
 from ...log.message import MessageLogManager
@@ -27,9 +30,9 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         jid: str,
         password: str,
         max_message_size: int,
-        consensus: Consensus,
+        consensus_manager: ConsensusManager,
         model_manager: ModelManager,
-        post_coordination_behaviours: Optional[list[tuple[CyclicBehaviour, Template]]],
+        similarity_manager: SimilarityManager,
         observers: list[JID] | None = None,
         neighbours: list[JID] | None = None,
         coordinator: JID | None = None,
@@ -39,16 +42,32 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         verify_security: bool = False,
     ):
         extra_name = f"agent.{JID.fromstr(jid).localpart}"
-        self.consensus = consensus
+        self.consensus_manager = consensus_manager
         self.model_manager = model_manager
-        self.max_algorithm_iterations = max_algorithm_iterations  # None = inf
-        self.similarity_manager: SimilarityManager = SimilarityManager(model_manager)
-        self.algorithm_iterations: int = 0
-        self.consensus_transmissions: Queue[ConsensusTransmission] = Queue()
+        self.similarity_manager = similarity_manager
+        self.max_rounds = max_algorithm_iterations  # None = inf
+        self.current_round: int = 0
+        self.consensus_transmissions: Queue[Consensus] = Queue()
         self.message_logger = MessageLogManager(extra_logger_name=extra_name)
         self.algorithm_logger = AlgorithmLogManager(extra_logger_name=extra_name)
         self.nn_train_logger = NnTrainLogManager(extra_logger_name=extra_name)
         self.nn_inference_logger = NnInferenceLogManager(extra_logger_name=extra_name)
+
+        self.fsm_behaviour = PremioFsmBehaviour()
+        self.layer_receiver_behaviour = LayerReceiverBehaviour()
+        self.similarity_receiver_behaviour = SimilarityReceiverBehaviour()
+        post_coordination_behaviours = [
+            (self.fsm_behaviour, None),
+            (
+                self.layer_receiver_behaviour,
+                Template(metadata={"rf.conversation": "layers"}),
+            ),
+            (
+                self.similarity_receiver_behaviour,
+                Template(metadata={"rf.conversation": "similarity"}),
+            ),
+        ]
+
         super().__init__(
             jid,
             password,
@@ -79,14 +98,19 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def assign_layers(
-        self, neighbours: list[JID]
+    def _assign_layers(
+        self,
+        my_vector: Optional[SimilarityVector],
+        neighbours_vectors: dict[JID, SimilarityVector],
+        selected_neighbours: list[JID],
     ) -> dict[JID, OrderedDict[str, Tensor]]:
         """
         This function assigns which layers will be sent to each neighbour. In the paper it is coined as `S_L_N`.
 
         Args:
-            neighbours (list[JID]): The neighbours that will receive the layers of the neural network model.
+            my_vector (SimilarityVector): The neighbours that will receive the layers of the neural network model.
+            neighbours_vectors (dict[JID, SimilarityVector]): All neighbours' vectors, here are selected and non-selected neighbours.
+            selected_neighbours (list[JID]): The neighbours that will receive the layers of the neural network model.
 
         Raises:
             NotImplementedError: This function must be overrided or it raises this error.
@@ -97,58 +121,80 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         """
         raise NotImplementedError
 
-    def put_model_to_consensus_queue(self, model: OrderedDict[str, Tensor]) -> None:
-        self.consensus.models_to_consensuate.put(model)
-
-    def apply_all_consensus(
-        self, other_model: Optional[OrderedDict[str, Tensor]] = None
-    ) -> None:
-        if other_model is not None:
-            self.consensus.models_to_consensuate.put(other_model)
-        weights_and_biases = self.model_manager.model.state_dict()
-        consensuated_model = self.consensus.apply_all_consensus(
-            model=weights_and_biases
-        )
-        self.model_manager.replace_weights_and_biases(
-            new_weights_and_biases=consensuated_model
-        )
-
-    def apply_consensus(self, other_model: OrderedDict[str, Tensor]) -> None:
-        weights_and_biases = self.model_manager.model.state_dict()
-        consensuated_model = Consensus.apply_consensus(
-            weights_and_biases_a=weights_and_biases,
-            weights_and_biases_b=other_model,
-            max_order=self.consensus.max_order,
-        )
-        self.model_manager.replace_weights_and_biases(
-            new_weights_and_biases=consensuated_model
-        )
-
-    def put_to_consensus_transmission_queue(
-        self, consensus_transmission: ConsensusTransmission
-    ) -> None:
-        self.consensus_transmissions.put(consensus_transmission)
-
-    async def apply_all_consensus_transmission(
+    def assign_layers(
         self,
-        consensus_transmission: Optional[ConsensusTransmission] = None,
-    ) -> list[ConsensusTransmission]:
-        consumed_consensus_transmissions: list[JID] = []
-        if consensus_transmission is not None:
-            self.consensus_transmissions.put(consensus_transmission)
-        while self.consensus_transmissions.qsize() > 0:
-            ct = self.consensus_transmissions.get()
-            ct.processed_start_time_z = datetime.now(tz=timezone.utc)
-            self.apply_consensus(ct.model)
-            ct.processed_end_time_z = datetime.now(tz=timezone.utc)
-            consumed_consensus_transmissions.append(ct)
-            self.consensus_transmissions.task_done()
-        return consumed_consensus_transmissions
+        selected_neighbours: list[JID],
+    ) -> dict[JID, OrderedDict[str, Tensor]]:
+        """
+        This function assigns which layers will be sent to each neighbour. In the paper it is coined as `S_L_N`.
+
+        Args:
+            selected_neighbours (list[JID]): The neighbours that will receive the layers of the neural network model.
+
+        Raises:
+            NotImplementedError: This function must be overrided or it raises this error.
+
+        Returns:
+            dict[JID, OrderedDict[str, Tensor]]: The keys are the neighbour's `aioxmpp.JID`s and the values are the
+            layer names with the `torch.Tensor` weights or biases.
+        """
+        return self._assign_layers(
+            my_vector=self.similarity_manager.get_own_similarity_vector(),
+            neighbours_vectors=self.similarity_manager.similarity_vectors,
+            selected_neighbours=selected_neighbours,
+        )
+
+    # def put_model_to_consensus_queue(self, model: OrderedDict[str, Tensor]) -> None:
+    #     self.consensus_manager.received_consensus.put(model)
+
+    # def apply_all_consensus(
+    #     self, other_model: Optional[OrderedDict[str, Tensor]] = None
+    # ) -> None:
+    #     if other_model is not None:
+    #         self.consensus_manager.received_consensus.put(other_model)
+    #     weights_and_biases = self.model_manager.model.state_dict()
+    #     consensuated_model = self.consensus_manager.apply_all_consensus(
+    #         model=weights_and_biases
+    #     )
+    #     self.model_manager.replace_weights_and_biases(
+    #         new_weights_and_biases=consensuated_model
+    #     )
+
+    # def apply_consensus(self, other_model: OrderedDict[str, Tensor]) -> None:
+    #     weights_and_biases = self.model_manager.model.state_dict()
+    #     consensuated_model = ConsensusManager.apply_consensus_to_layers(
+    #         full_model=weights_and_biases,
+    #         layers=other_model,
+    #         max_order=self.consensus_manager.max_order,
+    #     )
+    #     self.model_manager.replace_weights_and_biases(
+    #         new_weights_and_biases=consensuated_model
+    #     )
+
+    # def put_to_consensus_transmission_queue(
+    #     self, consensus_transmission: Consensus
+    # ) -> None:
+    #     self.consensus_transmissions.put(consensus_transmission)
+
+    # async def apply_all_consensus_transmission(
+    #     self,
+    #     consensus_transmission: Optional[Consensus] = None,
+    # ) -> list[Consensus]:
+    #     consumed_consensus_transmissions: list[JID] = []
+    #     if consensus_transmission is not None:
+    #         self.consensus_transmissions.put(consensus_transmission)
+    #     while self.consensus_transmissions.qsize() > 0:
+    #         ct = self.consensus_transmissions.get()
+    #         ct.processed_start_time_z = datetime.now(tz=timezone.utc)
+    #         self.apply_consensus(ct.layers)
+    #         ct.processed_end_time_z = datetime.now(tz=timezone.utc)
+    #         consumed_consensus_transmissions.append(ct)
+    #         self.consensus_transmissions.task_done()
+    #     return consumed_consensus_transmissions
 
     async def send_similarity_vector(
         self,
         neighbour: JID,
-        request_reply: bool,  # TODO
         vector: SimilarityVector,
         thread: Optional[str] = None,
         metadata: Optional[dict[str, str]] = None,
@@ -159,8 +205,9 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         msg.to = str(neighbour.bare())
         msg.thread = thread
         msg.metadata = metadata
+        tag = "-REQREPLY" if vector.request_reply else ""
         await self.__send_message(
-            message=msg, behaviour=behaviour, log_tag="-SIMILARITY"
+            message=msg, behaviour=behaviour, log_tag=f"-SIMILARITY{tag}"
         )
 
     async def send_local_layers(
@@ -172,9 +219,7 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         metadata: Optional[dict[str, str]] = None,
         behaviour: Optional[CyclicBehaviour] = None,
     ) -> None:
-        ct = ConsensusTransmission(
-            model=layers, sender=self.jid, request_reply=request_reply
-        )
+        ct = Consensus(layers=layers, sender=self.jid, request_reply=request_reply)
         msg = ct.to_message()
         msg.sender = str(self.jid.bare())
         msg.to = str(neighbour.bare())
@@ -190,7 +235,7 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
     ) -> None:
         await self.send(message=message, behaviour=behaviour)
         self.message_logger.log(
-            iteration_id=self.algorithm_iterations,
+            iteration_id=self.current_round,
             sender=message.sender,
             to=message.to,
             msg_type=f"SEND{log_tag}",
@@ -199,11 +244,8 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         )
 
     def are_max_iterations_reached(self) -> bool:
-        return (
-            self.max_algorithm_iterations is not None
-            and self.algorithm_iterations > self.max_algorithm_iterations
-        )
+        return self.max_rounds is not None and self.current_round > self.max_rounds
 
     async def stop(self) -> None:
         await super().stop()
-        self.logger.info(f"[{self.algorithm_iterations}] Agent stopped.")
+        self.logger.info("Agent stopped.")

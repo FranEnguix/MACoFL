@@ -76,7 +76,7 @@ class SubscriptionNodeState(State):
                 message.set_metadata("rf.presence", "sync")
                 await self.send(message)
                 agent.logger.info(
-                    f"Available neighbours: {agent.get_available_neighbours()}"
+                    f"Available neighbours: {[n.localpart for n in agent.get_available_neighbours()]}"
                 )
                 agent.logger.debug(f"'{message.body}' message sent to {coordinator}")
             elif not agent.is_presence_completed():
@@ -221,7 +221,7 @@ class SubscriptionCoordinatorState(State):
                 msg.body = body
                 msg.set_metadata("rf.presence", "sync")
                 await self.send(msg)
-            agent.logger.info(f"All {body} messages sent.")
+            agent.logger.info(f"All '{body}' messages sent.")
             self.set_next_state("wait")
         else:
             self.set_next_state("subscription")

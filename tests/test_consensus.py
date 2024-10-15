@@ -2,7 +2,7 @@ import copy
 
 import torch
 
-from macofl.datatypes.consensus import Consensus
+from macofl.datatypes.consensus_manager import ConsensusManager
 
 
 def test_consensus_update_tensors():
@@ -20,7 +20,7 @@ def test_consensus_update_tensors():
     expected_tensor = torch.full((3, 3), (1 - epsilon) * 10)
 
     # Apply the consensus update
-    consensuated_tensor = Consensus.consensus_update_to_tensors(
+    consensuated_tensor = ConsensusManager.apply_consensus_to_tensors(
         tensor_zeros, tensor_tens, max_order=max_order, epsilon_margin=epsilon_margin
     )
 
@@ -50,7 +50,7 @@ def test_consensus_update_models():
     }
 
     # Apply the consensus algorithm
-    consensuated_state_dict = Consensus.apply_consensus(
+    consensuated_state_dict = ConsensusManager.apply_consensus_to_layers(
         model_state_a, model_state_b, max_order=max_order, epsilon_margin=epsilon_margin
     )
 
@@ -70,38 +70,44 @@ def test_consensus_update_models():
     ), "The initial model has been modified during consensus process"
 
 
-def test_apply_consensus_algorithm():
-    consensus = Consensus(
-        max_order=2, max_seconds_to_accept_pre_consensus=10, epsilon_margin=0.05
-    )
+def test_consensus_update_layers():
+    max_order = 2
+    epsilon_margin = 0.05
 
-    # Define the models
-    agent_model = {"weight": torch.zeros((3, 3)), "bias": torch.zeros((3,))}
-    neighbour_models = [
-        {"weight": torch.full((3, 3), 10.0), "bias": torch.full((3,), 10.0)},
-        {"weight": torch.full((3, 3), 7.0), "bias": torch.full((3,), 7.0)},
-        {"weight": torch.full((3, 3), 3.0), "bias": torch.full((3,), 3.0)},
-    ]
+    # Calculate epsilon to know the expected result
+    epsilon = (1 / max_order) - epsilon_margin
+
+    # Define the state dictionaries of two models with tensors of zeros and tens
+    full_model = {"weight": torch.zeros((3, 3)), "bias": torch.zeros((3,))}
+    layers = {"bias": torch.full((3,), 10.0)}
+
+    freeze_model = copy.deepcopy(full_model)
 
     # Expected output after applying consensus
     expected_model_state = {
-        "weight": torch.full((3, 3), 4.5),
-        "bias": torch.full((3,), 4.5),
+        "weight": torch.zeros((3, 3)),
+        "bias": torch.full((3,), 10.0 * (1 - epsilon)),
     }
 
-    # Apply consensus
-    for weights_and_biases in neighbour_models:
-        consensus.models_to_consensuate.put(weights_and_biases)
-    agent_model = consensus.apply_all_consensus(agent_model)
+    # Apply the consensus algorithm
+    consensuated_state_dict = ConsensusManager.apply_consensus_to_layers(
+        full_model=full_model,
+        layers=layers,
+        max_order=max_order,
+        epsilon_margin=epsilon_margin,
+    )
 
     # Check that both 'weight' and 'bias' are correct
     assert torch.allclose(
-        agent_model["weight"],
+        consensuated_state_dict["weight"],
         expected_model_state["weight"],
-        atol=consensus.epsilon_margin,
-    ), f"Expected weight tensor of 5s but got {agent_model['weight']}"
+    ), f"Expected weight tensor of 5s but got {consensuated_state_dict['weight']}"
     assert torch.allclose(
-        agent_model["bias"],
+        consensuated_state_dict["bias"],
         expected_model_state["bias"],
-        atol=consensus.epsilon_margin,
-    ), f"Expected bias tensor of 5s but got {agent_model['bias']}"
+    ), f"Expected bias tensor of 5s but got {consensuated_state_dict['bias']}"
+
+    # Check that initial model is not modified
+    assert torch.allclose(
+        freeze_model["weight"], full_model["weight"]
+    ), "The initial model has been modified during consensus process"

@@ -33,7 +33,7 @@ class NnInferenceLogManager(CsvLogManager):
 
     @staticmethod
     def get_header() -> str:
-        return "log_timestamp,log_name,iteration_number,timestamp,agent,seconds_to_complete,epochs,mean_training_accuracy,mean_training_loss,validation_accuracy,validation_loss,test_accuracy,test_loss"
+        return "log_timestamp,log_name,algorithm_round,timestamp,agent,seconds_to_complete,epochs,mean_training_accuracy,mean_training_loss,validation_accuracy,validation_loss,test_accuracy,test_loss"
 
     @staticmethod
     def get_template() -> Template:
@@ -41,7 +41,7 @@ class NnInferenceLogManager(CsvLogManager):
 
     def log(
         self,
-        iteration_id: int,
+        current_round: int,
         agent: str | JID,
         seconds: float,
         epochs: int,
@@ -60,7 +60,7 @@ class NnInferenceLogManager(CsvLogManager):
         agent = str(agent.bare()) if isinstance(agent, JID) else agent
         msg = ",".join(
             [
-                str(iteration_id),
+                str(current_round),
                 dt_str,
                 agent,
                 str(seconds),
@@ -100,7 +100,7 @@ class NnTrainLogManager(CsvLogManager):
 
     @staticmethod
     def get_header() -> str:
-        return "log_timestamp,log_name,iteration_number,start_timestamp,agent,seconds_to_complete,epoch,accuracy,loss"
+        return "log_timestamp,log_name,algorithm_round,start_timestamp,agent,seconds_to_complete,epoch,accuracy,loss"
 
     @staticmethod
     def get_template() -> Template:
@@ -108,7 +108,7 @@ class NnTrainLogManager(CsvLogManager):
 
     def log(
         self,
-        iteration_id: int,
+        current_round: int,
         agent: str | JID,
         seconds: float,
         epoch: int,
@@ -127,7 +127,7 @@ class NnTrainLogManager(CsvLogManager):
         agent = str(agent.bare()) if isinstance(agent, JID) else agent
         msg = ",".join(
             [
-                str(iteration_id),
+                str(current_round),
                 dt_str,
                 agent,
                 str(seconds),
@@ -139,12 +139,12 @@ class NnTrainLogManager(CsvLogManager):
         self.logger.log(level=lvl, msg=msg)
 
     def log_train_epoch(
-        self, epoch: int, train: ModelMetrics, agent_jid: JID, algorithm_iteration: int
+        self, epoch: int, train: ModelMetrics, agent_jid: JID, current_round: int
     ) -> None:
         if train.start_time_z is not None and train.end_time_z is not None:
             time = train.end_time_z - train.start_time_z
             self.log(
-                iteration_id=algorithm_iteration,
+                current_round=current_round,
                 agent=agent_jid,
                 seconds=time.total_seconds(),
                 epoch=epoch,

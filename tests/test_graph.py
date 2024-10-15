@@ -8,7 +8,7 @@ from macofl.datatypes import GraphManager
 
 class TestGraph(unittest.TestCase):
 
-    def __init__(self, methodName="test_initialization"):
+    def __init__(self, methodName="test_initialization") -> None:
         super().__init__(methodName)
         self.folder: Path = Path("premiofl_graphs")
 
@@ -53,16 +53,16 @@ class TestGraph(unittest.TestCase):
         agents = [JID.fromstr(f"agent{i}@localhost") for i in range(10)]
 
         # Generate a ring structure
+        out = self.folder / "agents_ring"
+        out.resolve()
         gml_manager.generate_ring(agents)
-
-        # Export and visualize
-        out = self.folder / "agents_graph"
         gml_manager.export_to_gml(f"{out}.gml")
         gml_manager.import_from_gml(f"{out}.gml")
         gml_manager.visualize(f"{out}.html")
 
         # Complete graph
         out = self.folder / "agents_complete"
+        out.resolve()
         gml_manager.generate_complete(agents)
         gml_manager.export_to_gml(f"{out}.gml")
         gml_manager.import_from_gml(f"{out}.gml")
@@ -70,6 +70,7 @@ class TestGraph(unittest.TestCase):
 
         # Small-world graph
         out = self.folder / "agents_sw"
+        out.resolve()
         gml_manager.generate_small_world(agents, k=2, p=0.1)
         gml_manager.export_to_gml(f"{out}.gml")
         gml_manager.import_from_gml(f"{out}.gml")

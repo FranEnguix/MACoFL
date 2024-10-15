@@ -18,40 +18,57 @@ class SimilarityReceiverBehaviour(CyclicBehaviour):
         super().__init__()
 
     async def run(self) -> None:
-        timeout = 1  # TODO parametrizar
+        timeout = 5
         msg = await self.agent.receive(self, timeout=timeout)
         if (
             msg
             and RfMessage.is_completed(message=msg)
             and not self.agent.are_max_iterations_reached()
         ):
+            self.agent.message_logger.log(
+                iteration_id=self.agent.current_round,
+                sender=str(msg.sender.bare()),
+                to=str(msg.to.bare()),
+                msg_type="RECV-SIMILARITY",
+                size=len(msg.body),
+                thread=msg.thread,
+            )
             vector = SimilarityVector.from_message(message=msg)
             vector.received_time_z = datetime.now(tz=timezone.utc)  # zulu = utc+0
 
             if not vector.sent_time_z:
                 error_msg = (
-                    f"[{self.agent.algorithm_iterations}] Similarity vector from {msg.sender.bare()} without "
+                    f"[{self.agent.current_round}] Similarity vector from {msg.sender.bare()} without "
                     + "timestamp."
                 )
                 self.agent.logger.exception(error_msg)
                 raise ValueError(error_msg)
 
-            self.agent.similarity_manager.update_similarity_vector(
-                neighbour=msg.sender, vector=vector
+            self.agent.similarity_manager.add_similarity_vector(
+                neighbour=msg.sender, vector=vector, thread=msg.thread
             )
 
             seconds_since_message_sent = vector.received_time_z - vector.sent_time_z
-            self.agent.logger.info(
-                f"[{self.agent.algorithm_iterations}] Similarity vector ({msg.thread}) received from "
+            self.agent.logger.debug(
+                f"[{self.agent.current_round}] Similarity vector ({msg.thread}) received from "
                 + f"{msg.sender.bare()} in SimilarityReceiverBehaviour with time elapsed "
                 + f"{seconds_since_message_sent.total_seconds():.2f}"
             )
 
-            reply_vector = self.agent.similarity_manager.get_own_similarity_vector()
-            reply_vector.owner = self.agent.jid
-            await self.send_similarity_vector(
-                thread=msg.thread, vector=reply_vector, neighbour=msg.sender
-            )
+            if vector.request_reply:
+                reply_vector = self.agent.similarity_manager.get_own_similarity_vector()
+                if not reply_vector:
+                    raise RuntimeError(
+                        "Trying to compute the similarity vector without similarity function."
+                    )
+                reply_vector.owner = self.agent.jid
+                await self.send_similarity_vector(
+                    thread=msg.thread, vector=reply_vector, neighbour=msg.sender
+                )
+                self.agent.logger.debug(
+                    f"[{self.agent.current_round}] Similarity vector ({msg.thread}) sent to "
+                    + f"{msg.sender.bare()} because it is an answer to request reply."
+                )
 
     async def send_similarity_vector(
         self,
@@ -68,6 +85,6 @@ class SimilarityReceiverBehaviour(CyclicBehaviour):
             behaviour=self,
         )
         self.agent.logger.debug(
-            f"[{self.agent.algorithm_iterations}] Sent to {neighbour.localpart} the vector: {vector.to_message().body} "
+            f"[{self.agent.current_round}] Sent to {neighbour.localpart} the vector: {vector.to_message().body} "
             + f"with thread {thread}."
         )

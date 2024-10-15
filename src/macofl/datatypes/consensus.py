@@ -1,68 +1,118 @@
 import copy
-from queue import Queue
-from typing import OrderedDict
+import json
+from datetime import datetime, timezone
+from typing import Any, Optional, OrderedDict
 
+from aioxmpp import JID
+from spade.message import Message
 from torch import Tensor
+
+from .models import ModelManager
 
 
 class Consensus:
+    """
+    Stores consensus information during layer transmission and processing.
+    """
 
     def __init__(
         self,
-        max_order: int,
-        max_seconds_to_accept_pre_consensus: float,
-        epsilon_margin: float = 0.05,
-    ) -> None:
-        self.models_to_consensuate: Queue[OrderedDict[str, Tensor]] = Queue()
-        self.max_order = max_order
-        self.max_seconds_to_accept_consensus = max_seconds_to_accept_pre_consensus
-        self.epsilon_margin = epsilon_margin
+        layers: OrderedDict[str, Tensor],
+        sender: Optional[JID] = None,
+        request_reply: Optional[bool] = None,
+        sent_time_z: Optional[datetime] = None,
+        received_time_z: Optional[datetime] = None,
+        processed_start_time_z: Optional[datetime] = None,
+        processed_end_time_z: Optional[datetime] = None,
+    ):
+        self.layers = layers
+        self.sender = sender
+        self.request_reply = request_reply if request_reply is not None else False
+        self.sent_time_z = sent_time_z
+        self.received_time_z = received_time_z
+        self.processed_start_time_z = processed_start_time_z
+        self.processed_end_time_z = processed_end_time_z
 
-    def apply_all_consensus(
-        self, model: OrderedDict[str, Tensor]
-    ) -> OrderedDict[str, Tensor]:
-        consensuated_model = copy.deepcopy(model)
-        while self.models_to_consensuate.qsize() > 0:
-            weights_and_biases = self.models_to_consensuate.get()
-            consensuated_model = Consensus.apply_consensus(
-                consensuated_model,
-                weights_and_biases,
-                max_order=self.max_order,
-                epsilon_margin=self.epsilon_margin,
-            )
-            self.models_to_consensuate.task_done()
-        return consensuated_model
+        self.__check_utc(self.sent_time_z)
+        self.__check_utc(self.received_time_z)
+        self.__check_utc(self.processed_start_time_z)
+        self.__check_utc(self.processed_end_time_z)
+
+    def to_message(self, message: Optional[Message] = None) -> Message:
+        msg = Message() if message is None else copy.deepcopy(message)
+        content: dict[str, Any] = {}
+        base64_layers = ModelManager.export_layers(self.layers)
+        content["layers"] = base64_layers
+        content["sender"] = str(self.sender.bare()) if self.sender is not None else None
+        content["request_reply"] = self.request_reply
+        sent_time_z = (
+            datetime.now(tz=timezone.utc)
+            if self.sent_time_z is None
+            else self.sent_time_z
+        )
+        content["sent_time_z"] = sent_time_z.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        msg.body = json.dumps(content)
+        return msg
 
     @staticmethod
-    def apply_consensus(
-        weights_and_biases_a: OrderedDict[str, Tensor],
-        weights_and_biases_b: OrderedDict[str, Tensor],
-        max_order: int = 2,
-        epsilon_margin: float = 0.05,
-    ) -> OrderedDict[str, Tensor]:
-        consensuated_result: OrderedDict[str, Tensor] = OrderedDict()
-        for key in weights_and_biases_a.keys():
-            if key in weights_and_biases_b:
-                consensuated_result[key] = Consensus.consensus_update_to_tensors(
-                    tensor_a=weights_and_biases_a[key],
-                    tensor_b=weights_and_biases_b[key],
-                    max_order=max_order,
-                    epsilon_margin=epsilon_margin,
-                )
-            else:
+    def from_message(message: Message) -> "Consensus":
+        content: dict[str, Any] = json.loads(message.body)
+        base64_layers: str = content["layers"]
+        request_reply: bool = bool(content["request_reply"])
+        layers = ModelManager.import_layers(base64_layers)
+        sent_time_z: datetime = datetime.strptime(
+            content["sent_time_z"], "%Y-%m-%dT%H:%M:%S.%fZ"
+        ).replace(tzinfo=timezone.utc)
+        received_time_z: datetime = datetime.now(tz=timezone.utc)
+        if "received_time_z" in content:
+            received_time_z = datetime.strptime(
+                content["received_time_z"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).replace(tzinfo=timezone.utc)
+        processed_start_time_z: Optional[datetime] = None
+        if "processed_start_time_z" in content:
+            processed_start_time_z = datetime.strptime(
+                content["processed_start_time_z"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).replace(tzinfo=timezone.utc)
+        processed_end_time_z: Optional[datetime] = None
+        if "processed_end_time_z" in content:
+            processed_end_time_z = datetime.strptime(
+                content["processed_end_time_z"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).replace(tzinfo=timezone.utc)
+        return Consensus(
+            layers=layers,
+            sender=message.sender,
+            request_reply=request_reply,
+            sent_time_z=sent_time_z,
+            received_time_z=received_time_z,
+            processed_start_time_z=processed_start_time_z,
+            processed_end_time_z=processed_end_time_z,
+        )
+
+    def __str__(self) -> str:
+        content: dict[str, Any] = {}
+        base64_layers = ModelManager.export_layers(self.layers)
+        content["layers"] = base64_layers
+        content["request_reply"] = self.request_reply
+        content["sender"] = self.sender
+        if self.sent_time_z is not None:
+            content["sent_time_z"] = self.sent_time_z.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if self.received_time_z is not None:
+            content["received_time_z"] = self.received_time_z.strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+        if self.processed_start_time_z is not None:
+            content["processed_start_time_z"] = self.processed_start_time_z.strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+        if self.processed_end_time_z is not None:
+            content["processed_end_time_z"] = self.processed_end_time_z.strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+        return json.dumps(content)
+
+    def __check_utc(self, dt: Optional[datetime]) -> None:
+        if dt is not None:
+            if dt.tzinfo is None or dt.tzinfo != timezone.utc:
                 raise ValueError(
-                    f"Consensus error. The key '{key}' is not present in both models."
+                    "All Consensus datetimes must be timezone-aware (UTC) (Z)."
                 )
-        return consensuated_result
-
-    @staticmethod
-    def consensus_update_to_tensors(
-        tensor_a: Tensor, tensor_b: Tensor, max_order: int, epsilon_margin: float = 0.05
-    ) -> Tensor:
-        if max_order <= 1:
-            raise ValueError(
-                f"Max order of consensus must be greater than 1 and it is {max_order}."
-            )
-        # epsilon_margin because must be LESS than 1 / max_order
-        epsilon = 1 / max_order - epsilon_margin
-        return epsilon * tensor_a + (1 - epsilon) * tensor_b

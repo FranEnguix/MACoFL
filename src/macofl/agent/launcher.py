@@ -4,10 +4,13 @@ from macofl.agent import AgentBase
 from macofl.agent.premiofl import AcolAgent
 from macofl.behaviour.launcher import LaunchAgentsBehaviour, Wait
 
-from ..datatypes.consensus import Consensus
+from ..datatypes.consensus_manager import ConsensusManager
 from ..datatypes.data import NonIidDirichletDatasetSettings
 from ..nn.model_factory import ModelManagerFactory
-from .base import AgentNodeBase
+from ..similarity.similarity import OnesFunction
+from ..similarity.similarity_manager import SimilarityManager
+
+# from .base import AgentNodeBase
 
 
 class LauncherAgent(AgentBase):
@@ -45,6 +48,7 @@ class LauncherAgent(AgentBase):
         self.logger.debug(
             f"Initializating launch of {[str(j.bare()) for j in self.agents_to_launch]}"
         )
+        max_order = len(self.agents_to_launch)
         for agent_jid in self.agents_to_launch:
             neighbour_jids = [j for j in self.agents_to_launch if j != agent_jid]
             # agent = AgentNodeBase(
@@ -56,9 +60,7 @@ class LauncherAgent(AgentBase):
             #     coordinator=self.agents_coordinator,
             #     verify_security=self.verify_security,
             # )
-            consensus = Consensus(
-                max_order=len(neighbour_jids), max_seconds_to_accept_pre_consensus=600
-            )
+
             agent_index = int(str(agent_jid.localpart)[1])
             dataset_settings = NonIidDirichletDatasetSettings(
                 seed=42,
@@ -66,16 +68,28 @@ class LauncherAgent(AgentBase):
                 client_index=agent_index,
             )
             model_manager = ModelManagerFactory.get_cifar10(settings=dataset_settings)
+            consensus = ConsensusManager(
+                model_manager=model_manager,
+                max_order=max_order,
+                max_seconds_to_accept_consensus=24 * 60 * 60,
+                consensus_iterations=5,
+            )
+            similarity_manager = SimilarityManager(
+                model_manager=model_manager,
+                function=OnesFunction(),
+                wait_for_responses_timeout=30,
+            )
             agent = AcolAgent(
                 jid=str(agent_jid.bare()),
                 password="123",
                 max_message_size=self.max_message_size,
-                consensus=consensus,
+                consensus_manager=consensus,
                 model_manager=model_manager,
+                similarity_manager=similarity_manager,
                 observers=self.agents_observers,
                 neighbours=neighbour_jids,
                 coordinator=self.agents_coordinator,
-                max_algorithm_iterations=3,
+                max_algorithm_iterations=10,
             )
             self.logger.debug(
                 f"The neighbour JIDs for agent {agent_jid.bare()} are {[str(j.bare()) for j in neighbour_jids]}"

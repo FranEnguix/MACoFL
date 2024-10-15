@@ -47,33 +47,31 @@ class ModelManager:
             if device is None
             else torch.device(device)
         )
-        # TODO when the below TODO is completed: RandomUtils.set_randomness(seed=self.seed)
-        # TODO Ask for a model generator and generate the model here: self.model = generator.get_model(parameters)
+        # NOTE when the below NOTE is completed, uncomment: RandomUtils.set_randomness(seed=self.seed)
+        # NOTE Ask for a model generator and generate the model here: self.model = generator.get_model(parameters)
         self.initial_state: OrderedDict[str, Tensor] = copy.deepcopy(model.state_dict())
-        self.pretrain_state: OrderedDict[str, Tensor] = copy.deepcopy(
-            self.model.state_dict()
-        )
+        # self.pretrain_state: OrderedDict[str, Tensor] = copy.deepcopy(
+        #     self.model.state_dict()
+        # )
         self.__training: bool = False
 
     def is_training(self) -> bool:
         return self.__training
 
-    def replace_weights_and_biases(
-        self, new_weights_and_biases: OrderedDict[str, Tensor]
-    ) -> None:
-        self.model.load_state_dict(state_dict=new_weights_and_biases)
+    def replace_all_layers(self, new_layers: OrderedDict[str, Tensor]) -> None:
+        self.model.load_state_dict(state_dict=new_layers)
 
     def train(
         self,
         epochs: Optional[int] = None,
         train_logger: Optional[Callable[[int, ModelMetrics, JID, int], None]] = None,
         agent_jid: Optional[JID] = None,
-        algorithm_iteration: Optional[int] = None,
+        current_round: Optional[int] = None,
     ) -> list[ModelMetrics]:
         """
         Updates the model by training on the training dataset.
         """
-        self.pretrain_state = copy.deepcopy(self.model.state_dict())
+        # self.pretrain_state = copy.deepcopy(self.model.state_dict())
         self.__training = True
         if epochs is None:
             epochs = self.training_epochs
@@ -117,11 +115,9 @@ class ModelManager:
                 if (
                     train_logger is not None
                     and agent_jid is not None
-                    and algorithm_iteration is not None
+                    and current_round is not None
                 ):
-                    train_logger(
-                        epoch + 1, epoch_metric, agent_jid, algorithm_iteration
-                    )
+                    train_logger(epoch + 1, epoch_metric, agent_jid, current_round)
             return metrics
 
         finally:
@@ -183,25 +179,30 @@ class ModelManager:
         """
         return self._inference(dataloader=self.dataloaders.test)
 
-    def get_layers(self, layers: list[str]) -> OrderedDict[str, Tensor]:
-        part_of_model: OrderedDict[str, Tensor] = OrderedDict()
+    def get_layers(
+        self, layers: list[str], deepcopy_layers: bool = False
+    ) -> OrderedDict[str, Tensor]:
+        selected_layers: OrderedDict[str, Tensor] = OrderedDict()
         for layer in layers:
-            part_of_model[layer] = self.model.state_dict()[layer]
-        return part_of_model
+            if deepcopy_layers:
+                selected_layers[layer] = copy.deepcopy(self.model.state_dict()[layer])
+            else:
+                selected_layers[layer] = self.model.state_dict()[layer]
+        return selected_layers
 
     @staticmethod
-    def export_weights_and_biases(model: OrderedDict[str, Tensor]) -> str:
-        return codecs.encode(pickle.dumps(model), encoding="base64").decode(
+    def export_layers(layers: OrderedDict[str, Tensor]) -> str:
+        return codecs.encode(pickle.dumps(layers), encoding="base64").decode(
             encoding="utf-8"
         )
 
     @staticmethod
-    def import_weights_and_biases(
-        base64_codified_model: str,
+    def import_layers(
+        base64_codified_layers: str,
     ) -> OrderedDict[str, Tensor]:
         return pickle.loads(
             codecs.decode(
-                base64_codified_model.encode(encoding="utf-8"), encoding="base64"
+                base64_codified_layers.encode(encoding="utf-8"), encoding="base64"
             )
         )
 
