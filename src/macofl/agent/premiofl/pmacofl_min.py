@@ -12,7 +12,7 @@ from ...similarity.similarity_vector import SimilarityVector
 from .base import PremioFlAgent
 
 
-class MacoflAgent(PremioFlAgent):
+class PmacoflMinAgent(PremioFlAgent):
 
     def __init__(
         self,
@@ -57,12 +57,27 @@ class MacoflAgent(PremioFlAgent):
         neighbours_vectors: dict[JID, SimilarityVector],
         selected_neighbours: list[JID],
     ) -> dict[JID, OrderedDict[str, Tensor]]:
+        if not my_vector:
+            raise ValueError("PMACoFLs algorithms must have a similarity function.")
         result: dict[JID, OrderedDict[str, Tensor]] = {}
-        for n in neighbours_vectors.keys():
-            layers: OrderedDict[str, Tensor] = OrderedDict()
-            layer_name = random.choice(
-                list(self.model_manager.model.state_dict().keys())
-            )
-            layers[layer_name] = self.model_manager.model.state_dict()[layer_name]
-            result[n] = layers
+
+        for neighbour in selected_neighbours:
+            neighbour_vector = neighbours_vectors[neighbour].vector
+
+            min_layer: str | None = None
+            min_difference = float("inf")
+
+            for layer_name, my_layer_value in my_vector.vector.items():
+                neighbour_layer_value = neighbour_vector[layer_name]
+
+                difference = abs(my_layer_value - neighbour_layer_value)
+
+                if difference < min_difference:
+                    min_difference = difference
+                    min_layer = layer_name
+
+            if min_layer:
+                layer_tensor = self.model_manager.model.state_dict()[min_layer]
+                result[neighbour] = OrderedDict({min_layer: layer_tensor})
+
         return result

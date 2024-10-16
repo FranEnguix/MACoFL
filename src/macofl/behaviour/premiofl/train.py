@@ -6,12 +6,11 @@ from spade.behaviour import State
 from ...datatypes.metrics import ModelMetrics
 
 if TYPE_CHECKING:
-    from ...agent.premiofl.premiofl import PremioFlAgent
+    from ...agent.premiofl.base import PremioFlAgent
 
 
 class TrainAndApplyConsensusState(State):
     def __init__(self) -> None:
-        # self.iterations: int = 0
         self.agent: PremioFlAgent
         super().__init__()
 
@@ -57,18 +56,6 @@ class TrainAndApplyConsensusState(State):
                     test=metrics_test,
                 )
 
-                # # Apply consensus
-                # self.agent.logger.debug(
-                #     f"[{self.agent.algorithm_iterations}] Starting consensus..."
-                # )
-                # consensus_transmissions_applied = (
-                #     await self.agent.apply_all_consensus_transmission()
-                # )
-                # if consensus_transmissions_applied:
-                #     self.agent.logger.info(
-                #         f"[{self.agent.algorithm_iterations}] Post-train consensus completed with neighbours: "
-                #         + f"{[ct.sender.localpart for ct in consensus_transmissions_applied]}."
-                #     )
                 self.set_next_state("communication")
 
         except Exception as e:

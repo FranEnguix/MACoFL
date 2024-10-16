@@ -9,7 +9,7 @@ from macofl.datatypes.models import ModelManager
 
 from ...similarity.similarity_manager import SimilarityManager
 from ...similarity.similarity_vector import SimilarityVector
-from .premiofl import PremioFlAgent
+from .base import PremioFlAgent
 
 
 class AcolAgent(PremioFlAgent):
@@ -25,20 +25,11 @@ class AcolAgent(PremioFlAgent):
         observers: list[JID] | None = None,
         neighbours: list[JID] | None = None,
         coordinator: JID | None = None,
-        max_algorithm_iterations: int | None = 100,
+        max_rounds: int | None = 100,
         web_address: str = "0.0.0.0",
         web_port: int = 10000,
         verify_security: bool = False,
     ):
-        # self.acol_fsm = PremioFsmBehaviour()
-        # self.acol_cyclic_receiver = LayerReceiverBehaviour()
-        # post_coordination_behaviours = [
-        #     (self.acol_fsm, None),
-        #     (
-        #         self.acol_cyclic_receiver,
-        #         Template(metadata={"rf.conversation": "layers"}),
-        #     ),
-        # ]
         super().__init__(
             jid,
             password,
@@ -46,11 +37,10 @@ class AcolAgent(PremioFlAgent):
             consensus_manager,
             model_manager,
             similarity_manager,
-            # post_coordination_behaviours,
             observers,
             neighbours,
             coordinator,
-            max_algorithm_iterations,
+            max_rounds,
             web_address,
             web_port,
             verify_security,

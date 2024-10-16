@@ -1,16 +1,13 @@
 from aioxmpp import JID
 
-from macofl.agent import AgentBase
-from macofl.agent.premiofl import AcolAgent
-from macofl.behaviour.launcher import LaunchAgentsBehaviour, Wait
-
+from ..behaviour.launcher import LaunchAgentsBehaviour, Wait
 from ..datatypes.consensus_manager import ConsensusManager
 from ..datatypes.data import NonIidDirichletDatasetSettings
 from ..nn.model_factory import ModelManagerFactory
-from ..similarity.similarity import OnesFunction
+from ..similarity.function import EuclideanDistanceFunction
 from ..similarity.similarity_manager import SimilarityManager
-
-# from .base import AgentNodeBase
+from .base import AgentBase
+from .premiofl.pmacofl_min import PmacoflMinAgent
 
 
 class LauncherAgent(AgentBase):
@@ -27,7 +24,7 @@ class LauncherAgent(AgentBase):
         web_port: int = 10000,
         verify_security: bool = False,
     ):
-        self.agents: list[AcolAgent] = []
+        self.agents: list[PmacoflMinAgent] = []
         self.agents_coordinator = agents_coordinator
         self.agents_observers = [] if agents_observers is None else agents_observers
         self.agents_to_launch = [] if agents_to_launch is None else agents_to_launch
@@ -48,26 +45,19 @@ class LauncherAgent(AgentBase):
         self.logger.debug(
             f"Initializating launch of {[str(j.bare()) for j in self.agents_to_launch]}"
         )
-        max_order = len(self.agents_to_launch)
+        max_order = len(self.agents_to_launch) - 1
         for agent_jid in self.agents_to_launch:
             neighbour_jids = [j for j in self.agents_to_launch if j != agent_jid]
-            # agent = AgentNodeBase(
-            #     jid=str(agent_jid.bare()),
-            #     password="123",
-            #     max_message_size=self.max_message_size,
-            #     observers=self.agents_observers,
-            #     neighbours=neighbour_jids,
-            #     coordinator=self.agents_coordinator,
-            #     verify_security=self.verify_security,
-            # )
 
             agent_index = int(str(agent_jid.localpart)[1])
             dataset_settings = NonIidDirichletDatasetSettings(
-                seed=42,
+                seed=13,
                 num_clients=len(self.agents_to_launch),
                 client_index=agent_index,
             )
-            model_manager = ModelManagerFactory.get_cifar10(settings=dataset_settings)
+            model_manager = ModelManagerFactory.get_cifar10_cnn5(
+                settings=dataset_settings
+            )
             consensus = ConsensusManager(
                 model_manager=model_manager,
                 max_order=max_order,
@@ -76,10 +66,10 @@ class LauncherAgent(AgentBase):
             )
             similarity_manager = SimilarityManager(
                 model_manager=model_manager,
-                function=OnesFunction(),
-                wait_for_responses_timeout=30,
+                function=EuclideanDistanceFunction(),
+                wait_for_responses_timeout=5 * 60,
             )
-            agent = AcolAgent(
+            agent = PmacoflMinAgent(
                 jid=str(agent_jid.bare()),
                 password="123",
                 max_message_size=self.max_message_size,
@@ -89,7 +79,7 @@ class LauncherAgent(AgentBase):
                 observers=self.agents_observers,
                 neighbours=neighbour_jids,
                 coordinator=self.agents_coordinator,
-                max_algorithm_iterations=3,
+                max_rounds=70,
             )
             self.logger.debug(
                 f"The neighbour JIDs for agent {agent_jid.bare()} are {[str(j.bare()) for j in neighbour_jids]}"

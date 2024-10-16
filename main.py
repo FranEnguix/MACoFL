@@ -17,7 +17,7 @@ async def main() -> None:
     uuid4_enabled = True
     xmpp_domain = "localhost"
     max_message_size = 250_000  # do not be close to 262 144
-    number_of_agents = 2
+    number_of_agents = 10
     number_of_observers = 1
 
     uuid4 = str(uuid.uuid4()) if uuid4_enabled else ""

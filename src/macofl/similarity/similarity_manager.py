@@ -5,7 +5,7 @@ from typing import Optional
 from aioxmpp import JID
 
 from ..datatypes.models import ModelManager
-from .similarity import SimilarityFunction
+from .function import SimilarityFunction
 from .similarity_vector import SimilarityVector
 
 

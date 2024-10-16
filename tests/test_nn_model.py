@@ -5,16 +5,16 @@ from torch.optim import Adam
 
 from macofl.dataset.cifar import Cifar10DataLoaderGenerator
 from macofl.datatypes import ModelManager
-from macofl.datatypes.data import IidDatasetSettings
+from macofl.datatypes.data import IidDatasetSettings, NonIidDirichletDatasetSettings
 from macofl.nn import ModelManagerFactory
-from macofl.nn.model.cifar import CifarMlp
+from macofl.nn.model.mlp import CifarMlp
 
 
 def build_neural_network(seed: int = 42) -> ModelManager:
     cifar10_generator = Cifar10DataLoaderGenerator()
     iid_settings = IidDatasetSettings(seed=42)
     dataloaders = cifar10_generator.get_dataloaders(settings=iid_settings)
-    model = CifarMlp(classes=10)
+    model = CifarMlp(out_classes=10)
     return ModelManager(
         model=model,
         criterion=nn.CrossEntropyLoss(),
@@ -44,14 +44,14 @@ def test_neural_network() -> None:
 
 def test_deterministic_neural_network() -> None:
     iid_settings = IidDatasetSettings(seed=42)
-    model1 = ModelManagerFactory.get_cifar10(settings=iid_settings)
-    model2 = ModelManagerFactory.get_cifar10(settings=iid_settings)
+    model1 = ModelManagerFactory.get_cifar10_mlp(settings=iid_settings)
+    model2 = ModelManagerFactory.get_cifar10_mlp(settings=iid_settings)
     assert are_weights_equal(model1.model, model2.model)
 
 
 def test_random_neural_network() -> None:
-    model1 = ModelManagerFactory.get_cifar10(settings=IidDatasetSettings(seed=42))
-    model2 = ModelManagerFactory.get_cifar10(settings=IidDatasetSettings(seed=14))
+    model1 = ModelManagerFactory.get_cifar10_mlp(settings=IidDatasetSettings(seed=42))
+    model2 = ModelManagerFactory.get_cifar10_mlp(settings=IidDatasetSettings(seed=14))
     assert not are_weights_equal(model1.model, model2.model)
 
 
@@ -89,3 +89,24 @@ def are_weights_equal(model1: nn.Module, model2: nn.Module) -> bool:
             return False
 
     return True
+
+
+def test_training() -> None:
+    epochs = 30
+    dataset_settings = IidDatasetSettings(
+        seed=13, train_samples_percent=0.1, test_samples_percent=1
+    )
+    # model = ModelManagerFactory.get_cifar10_mlp(dataset_settings)
+    # metrics = model.train(epochs=epochs)
+    # for m in metrics:
+    #     print(m.accuracy, m.loss)
+
+    # model = ModelManagerFactory.get_cifar10_cnn5(dataset_settings)
+    # metrics = model.train(epochs=epochs)
+    # for m in metrics:
+    #     print(m.accuracy, m.loss)
+
+    model = ModelManagerFactory.get_cifar100_cnn5(dataset_settings)
+    metrics = model.train(epochs=epochs)
+    for m in metrics:
+        print(m.accuracy, m.loss)

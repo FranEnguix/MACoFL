@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from datetime import datetime, timezone
 from queue import Queue
 from typing import Optional, OrderedDict
 
@@ -36,7 +35,7 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         observers: list[JID] | None = None,
         neighbours: list[JID] | None = None,
         coordinator: JID | None = None,
-        max_algorithm_iterations: Optional[int] = 100,
+        max_rounds: Optional[int] = 100,
         web_address: str = "0.0.0.0",
         web_port: int = 10000,
         verify_security: bool = False,
@@ -45,7 +44,7 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         self.consensus_manager = consensus_manager
         self.model_manager = model_manager
         self.similarity_manager = similarity_manager
-        self.max_rounds = max_algorithm_iterations  # None = inf
+        self.max_rounds = max_rounds  # None = inf
         self.current_round: int = 0
         self.consensus_transmissions: Queue[Consensus] = Queue()
         self.message_logger = MessageLogManager(extra_logger_name=extra_name)
@@ -105,7 +104,7 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         selected_neighbours: list[JID],
     ) -> dict[JID, OrderedDict[str, Tensor]]:
         """
-        This function assigns which layers will be sent to each neighbour. In the paper it is coined as `S_L_N`.
+        Assigns which layers will be sent to each neighbour. In the paper this function is coined as `S_L_N`.
 
         Args:
             my_vector (SimilarityVector): The neighbours that will receive the layers of the neural network model.
@@ -126,7 +125,7 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
         selected_neighbours: list[JID],
     ) -> dict[JID, OrderedDict[str, Tensor]]:
         """
-        This function assigns which layers will be sent to each neighbour. In the paper it is coined as `S_L_N`.
+        Assigns which layers will be sent to each neighbour. In the paper this function is coined as `S_L_N`.
 
         Args:
             selected_neighbours (list[JID]): The neighbours that will receive the layers of the neural network model.
@@ -143,54 +142,6 @@ class PremioFlAgent(AgentNodeBase, metaclass=ABCMeta):
             neighbours_vectors=self.similarity_manager.similarity_vectors,
             selected_neighbours=selected_neighbours,
         )
-
-    # def put_model_to_consensus_queue(self, model: OrderedDict[str, Tensor]) -> None:
-    #     self.consensus_manager.received_consensus.put(model)
-
-    # def apply_all_consensus(
-    #     self, other_model: Optional[OrderedDict[str, Tensor]] = None
-    # ) -> None:
-    #     if other_model is not None:
-    #         self.consensus_manager.received_consensus.put(other_model)
-    #     weights_and_biases = self.model_manager.model.state_dict()
-    #     consensuated_model = self.consensus_manager.apply_all_consensus(
-    #         model=weights_and_biases
-    #     )
-    #     self.model_manager.replace_weights_and_biases(
-    #         new_weights_and_biases=consensuated_model
-    #     )
-
-    # def apply_consensus(self, other_model: OrderedDict[str, Tensor]) -> None:
-    #     weights_and_biases = self.model_manager.model.state_dict()
-    #     consensuated_model = ConsensusManager.apply_consensus_to_layers(
-    #         full_model=weights_and_biases,
-    #         layers=other_model,
-    #         max_order=self.consensus_manager.max_order,
-    #     )
-    #     self.model_manager.replace_weights_and_biases(
-    #         new_weights_and_biases=consensuated_model
-    #     )
-
-    # def put_to_consensus_transmission_queue(
-    #     self, consensus_transmission: Consensus
-    # ) -> None:
-    #     self.consensus_transmissions.put(consensus_transmission)
-
-    # async def apply_all_consensus_transmission(
-    #     self,
-    #     consensus_transmission: Optional[Consensus] = None,
-    # ) -> list[Consensus]:
-    #     consumed_consensus_transmissions: list[JID] = []
-    #     if consensus_transmission is not None:
-    #         self.consensus_transmissions.put(consensus_transmission)
-    #     while self.consensus_transmissions.qsize() > 0:
-    #         ct = self.consensus_transmissions.get()
-    #         ct.processed_start_time_z = datetime.now(tz=timezone.utc)
-    #         self.apply_consensus(ct.layers)
-    #         ct.processed_end_time_z = datetime.now(tz=timezone.utc)
-    #         consumed_consensus_transmissions.append(ct)
-    #         self.consensus_transmissions.task_done()
-    #     return consumed_consensus_transmissions
 
     async def send_similarity_vector(
         self,

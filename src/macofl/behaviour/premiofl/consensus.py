@@ -5,7 +5,7 @@ from spade.behaviour import State
 # from ...message.message import RfMessage
 
 if TYPE_CHECKING:
-    from ...agent.premiofl.premiofl import PremioFlAgent
+    from ...agent.premiofl.base import PremioFlAgent
 
 
 class ConsensusState(State):

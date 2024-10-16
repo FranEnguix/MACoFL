@@ -4,18 +4,20 @@ from torch import nn
 
 
 class CifarMlp(nn.Module):
-    def __init__(self, classes: int = 10):
-        super().__init__()
-        self.classes = classes
+    def __init__(self, input_dim: tuple = (3, 32, 32), out_classes: int = 10):
         # CIFAR images are 32x32 pixels with 3 color channels
-        input_dim = 32 * 32 * 3  # Flatten the 32x32x3 image into a single vector
+        super().__init__()
+        self.input_dim = input_dim  # Flatten the 32x32x3 image into a single vector
+        self.out_classes = out_classes
 
         # Define the MLP architecture
-        self.fc1 = nn.Linear(input_dim, 512)  # First dense layer
+        self.fc1 = nn.Linear(
+            self.input_dim[0] * self.input_dim[1] * self.input_dim[2], 512
+        )  # First dense layer
         self.fc2 = nn.Linear(512, 256)  # Second dense layer
         self.fc3 = nn.Linear(256, 128)  # Third dense layer
         self.fc4 = nn.Linear(128, 64)  # Fourth dense layer
-        self.fc5 = nn.Linear(64, self.classes)  # Output layer
+        self.fc5 = nn.Linear(64, self.out_classes)  # Output layer
 
         # Dropout to avoid overfitting
         self.dropout = nn.Dropout(p=0.1)

@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from spade.behaviour import State
 
 if TYPE_CHECKING:
-    from ...agent.premiofl.premiofl import PremioFlAgent
+    from ...agent.premiofl.base import PremioFlAgent
 
 import traceback
 

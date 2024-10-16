@@ -7,3 +7,5 @@ numpy==1.26.4
 torchvision==0.12.0
 scikit-learn==1.0.2
 pyvis==0.3.2
+plotly==5.24.1
+plotly-express==0.4.1

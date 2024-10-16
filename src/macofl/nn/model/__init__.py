@@ -1,1 +1,1 @@
-from . import cifar
+from . import cnn, mlp
